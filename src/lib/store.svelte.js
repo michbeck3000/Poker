@@ -1,5 +1,13 @@
 import Peer from 'peerjs';
 
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ]
+};
+
 export const CARD_VALUES = [1, 2, 3, 5, 8, 13, 20, 40, 100, '?', '☕'];
 
 export const game = $state({
@@ -45,7 +53,7 @@ export function createRoom(name) {
   const code = generateRoomCode();
   game.roomId = code;
   const peerId = `sp-${code}`;
-  peer = new Peer(peerId);
+  peer = new Peer(peerId, { config: ICE_CONFIG });
   peer.on('open', () => {
     game.myId = peer.id;
     game.players = [{ id: peer.id, name, hasVoted: false, cardValue: null }];
@@ -90,7 +98,7 @@ export function joinRoom(name, code) {
   game.myName = name;
   game.isHost = false;
   game.roomId = code;
-  peer = new Peer();
+  peer = new Peer({ config: ICE_CONFIG });
   const hostId = `sp-${code}`;
   peer.on('open', () => {
     game.myId = peer.id;
