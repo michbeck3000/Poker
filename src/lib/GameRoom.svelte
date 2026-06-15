@@ -78,64 +78,66 @@
     </button>
   </header>
 
-  <div class="player-list" style="grid-template-columns: repeat({gridCols}, auto)">
-    {#each game.players as player, i (player.id)}
-      <div
-        class="player"
-        class:me={player.id === game.myId}
-        class:flipped={game.phase === 'revealed'}
-        style="--delay: {flipDelays[player.id] ?? 0}ms"
-      >
-        <div class="card-inner">
-          <div class="card-front">
-            <span class="name">{player.name}</span>
-            <span class="status" class:ready={player.hasVoted}>
-              {player.hasVoted ? '✓ Bereit' : 'Wählt...'}
-            </span>
-          </div>
-          <div class="card-back">
-            <span class="revealed-value">{game.revealedCards[player.id] ?? '-'}</span>
-            <span class="name">{player.name}</span>
+  <div class="game-content">
+    <div class="player-list" style="grid-template-columns: repeat({gridCols}, auto)">
+      {#each game.players as player, i (player.id)}
+        <div
+          class="player"
+          class:me={player.id === game.myId}
+          class:flipped={game.phase === 'revealed'}
+          style="--delay: {flipDelays[player.id] ?? 0}ms"
+        >
+          <div class="card-inner">
+            <div class="card-front">
+              <span class="name">{player.name}</span>
+              <span class="status" class:ready={player.hasVoted}>
+                {player.hasVoted ? '✓ Bereit' : 'Wählt...'}
+              </span>
+            </div>
+            <div class="card-back">
+              <span class="revealed-value">{game.revealedCards[player.id] ?? '-'}</span>
+              <span class="name">{player.name}</span>
+            </div>
           </div>
         </div>
-      </div>
-    {/each}
-  </div>
-
-  {#if game.phase === 'voting'}
-    <div class="card-deck">
-      {#each CARD_VALUES as value}
-        <button
-          class="poker-card"
-          class:selected={game.selectedCard === value}
-          onclick={() => selectCard(value)}
-        >
-          <span class="card-value">{value}</span>
-        </button>
       {/each}
     </div>
 
-    {#if !game.selectedCard && game.selectedCard !== 0}
-      <p class="hint">Wähle eine Karte aus, um abzustimmen</p>
-    {:else}
-      <p class="selected-hint">Ausgewählt: <strong>{game.selectedCard}</strong></p>
-    {/if}
+    {#if game.phase === 'voting'}
+      <div class="card-deck">
+        {#each CARD_VALUES as value}
+          <button
+            class="poker-card"
+            class:selected={game.selectedCard === value}
+            onclick={() => selectCard(value)}
+          >
+            <span class="card-value">{value}</span>
+          </button>
+        {/each}
+      </div>
 
-    {#if game.isHost}
-      <button class="btn btn-reveal" onclick={revealCards}>
-        Aufdecken
-      </button>
-    {/if}
-  {:else}
-    <div class="results">
-      <p class="average">Durchschnitt: <strong>{average()}</strong></p>
+      {#if !game.selectedCard && game.selectedCard !== 0}
+        <p class="hint">Wähle eine Karte aus, um abzustimmen</p>
+      {:else}
+        <p class="selected-hint">Ausgewählt: <strong>{game.selectedCard}</strong></p>
+      {/if}
+
       {#if game.isHost}
-        <button class="btn btn-primary" onclick={newRound}>
-          Neue Runde
+        <button class="btn btn-reveal" onclick={revealCards}>
+          Aufdecken
         </button>
       {/if}
-    </div>
-  {/if}
+    {:else}
+      <div class="results">
+        <p class="average">Durchschnitt: <strong>{average()}</strong></p>
+        {#if game.isHost}
+          <button class="btn btn-primary" onclick={newRound}>
+            Neue Runde
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </div>
 
 {#if showLeaveConfirm}

@@ -42,7 +42,6 @@ main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: 20px;
   max-width: 800px;
   margin: 0 auto;
@@ -203,6 +202,13 @@ input::placeholder {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.game-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 20px;
   padding-top: 10px;
 }
@@ -235,7 +241,6 @@ input::placeholder {
   display: grid;
   gap: 18px;
   justify-content: center;
-  margin-top: 38px;
 }
 
 .player {
