@@ -3,6 +3,7 @@
 
   let { initialRoomCode = '' } = $props();
   let joinCode = $state('');
+  let hasCode = $derived(joinCode.trim().length > 0);
 
   $effect(() => {
     if (initialRoomCode) joinCode = initialRoomCode;
@@ -35,7 +36,7 @@
       bind:value={game.myName}
     />
 
-    <button class="btn btn-primary" onclick={handleCreate} disabled={!game.myName.trim() || game.connecting}>
+    <button class="btn {hasCode ? 'btn-secondary' : 'btn-primary'}" onclick={handleCreate} disabled={!game.myName.trim() || game.connecting}>
       {game.connecting ? 'Verbinde...' : 'Raum erstellen'}
     </button>
 
@@ -51,7 +52,7 @@
         onkeydown={handleKeydown}
         maxlength="6"
       />
-      <button class="btn btn-secondary" onclick={handleJoin} disabled={!game.myName.trim() || !joinCode.trim() || game.connecting}>
+      <button class="btn {hasCode ? 'btn-primary' : 'btn-secondary'}" onclick={handleJoin} disabled={!game.myName.trim() || !joinCode.trim() || game.connecting}>
         {game.connecting ? 'Verbinde...' : 'Beitreten'}
       </button>
     </div>
