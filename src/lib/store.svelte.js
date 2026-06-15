@@ -70,13 +70,12 @@ async function subscribeRoom(code) {
 }
 
 async function readState() {
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('rooms')
     .select('state')
     .eq('code', game.roomId)
-    .single();
-  if (error) throw error;
-  return data?.state;
+    .limit(1);
+  return data?.[0]?.state ?? null;
 }
 
 async function writeState() {
