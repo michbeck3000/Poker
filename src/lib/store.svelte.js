@@ -30,6 +30,7 @@ function generateRoomCode() {
 
 function applyState(raw) {
   if (!raw) return;
+  const wasRevealed = game.phase === 'revealed';
   game.players = raw.players || [];
   game.phase = raw.phase || 'voting';
   game.revealedCards = raw.revealedCards || {};
@@ -38,55 +39,41 @@ function applyState(raw) {
   game.error = '';
   const hostId = raw.hostId || game.players[0]?.id || '';
   game.isHost = hostId === game.myId;
-  if (game.phase === 'voting') {
+  if (game.phase === 'voting' && wasRevealed) {
     game.selectedCard = null;
   }
-}
-
-function buildState() {
-  return {
-    players: game.players,
-    phase: game.phase,
-    revealedCards: game.revealedCards,
-    hostId: game.players[0]?.id || game.myId,
-  };
-}
-
-function broadcastState(state) {
-  if (channel) {
-    channel.send({ type: 'broadcast', event: 'state', payload: state }).catch(() => {});
-  }
-}
-
-async function persistState(state) {
-  try {
-    await supabase.from('rooms').upsert(
-      { code: game.roomId, state },
-      { onConflict: 'code' }
-    );
-  } catch (_) {}
 }
 
 async function subscribeRoom(code) {
   if (channel) await supabase.removeChannel(channel);
   channel = supabase.channel(`room-${code}`);
-  channel.on('broadcast', { event: 'state' }, (payload) => {
-    applyState(payload);
-  });
   channel.on('postgres_changes',
     { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
     (payload) => { applyState(payload.new?.state); }
-  );
-  await channel.subscribe();
+  ).subscribe();
 }
 
-async function readStateFromDb() {
-  const { data } = await supabase
+async function readState() {
+  const { data, error } = await supabase
     .from('rooms')
     .select('state')
     .eq('code', game.roomId)
     .single();
+  if (error) throw error;
   return data?.state;
+}
+
+async function writeState() {
+  const state = {
+    players: game.players,
+    phase: game.phase,
+    revealedCards: game.revealedCards,
+    hostId: game.players[0]?.id || game.myId,
+  };
+  await supabase.from('rooms').upsert(
+    { code: game.roomId, state },
+    { onConflict: 'code' }
+  );
 }
 
 export async function createRoom(name) {
@@ -109,10 +96,14 @@ export async function createRoom(name) {
     game.players = [{ id: game.myId, name, hasVoted: false, cardValue: null }];
     game.phase = 'voting';
     game.revealedCards = {};
-    const state = buildState();
-    await persistState(state);
-    applyState(state);
+    await writeState();
     clearTimeout(connectTimer);
+    applyState({
+      players: game.players,
+      phase: 'voting',
+      revealedCards: {},
+      hostId: game.myId,
+    });
   } catch (err) {
     clearTimeout(connectTimer);
     game.error = `Fehler: ${err.message}`;
@@ -136,17 +127,16 @@ export async function joinRoom(name, code) {
   }, CONNECT_TIMEOUT);
   try {
     await subscribeRoom(code);
-    const dbState = await readStateFromDb();
-    if (!dbState) {
+    const state = await readState();
+    if (!state) {
       game.error = 'Raum nicht gefunden. Code prüfen.';
       game.connecting = false;
       clearTimeout(connectTimer);
       return;
     }
-    dbState.players = [...(dbState.players || []), { id: game.myId, name, hasVoted: false, cardValue: null }];
-    const state = dbState;
-    broadcastState(state);
-    await persistState(state);
+    const newPlayer = { id: game.myId, name, hasVoted: false, cardValue: null };
+    state.players = [...(state.players || []), newPlayer];
+    await supabase.from('rooms').update({ state }).eq('code', code);
     applyState(state);
     clearTimeout(connectTimer);
   } catch (err) {
@@ -158,54 +148,46 @@ export async function joinRoom(name, code) {
 
 export async function selectCard(value) {
   game.selectedCard = value;
-  const dbState = await readStateFromDb();
-  if (!dbState) return;
-  dbState.players = dbState.players.map(p =>
+  game.players = game.players.map(p =>
     p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
   );
-  const state = dbState;
-  game.players = state.players;
-  broadcastState(state);
-  await persistState(state);
+  const state = await readState();
+  if (!state) return;
+  state.players = state.players.map(p =>
+    p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
+  );
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
 export async function revealCards() {
   if (!game.isHost) return;
-  const dbState = await readStateFromDb();
-  if (!dbState) return;
-  dbState.phase = 'revealed';
-  dbState.revealedCards = Object.fromEntries(
-    dbState.players.map(p => [p.id, p.cardValue])
+  const state = await readState();
+  if (!state) return;
+  state.phase = 'revealed';
+  state.revealedCards = Object.fromEntries(
+    state.players.map(p => [p.id, p.cardValue])
   );
-  const state = dbState;
-  broadcastState(state);
-  await persistState(state);
-  applyState(state);
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
 export async function newRound() {
   if (!game.isHost) return;
-  const dbState = await readStateFromDb();
-  if (!dbState) return;
-  dbState.phase = 'voting';
-  dbState.players = dbState.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
-  dbState.revealedCards = {};
-  const state = dbState;
-  broadcastState(state);
-  await persistState(state);
-  applyState(state);
+  const state = await readState();
+  if (!state) return;
+  state.phase = 'voting';
+  state.players = state.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
+  state.revealedCards = {};
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
 export async function leaveRoom() {
-  if (game.roomId && game.myId && game.players.length > 0) {
+  if (game.roomId && game.myId) {
     try {
-      const dbState = await readStateFromDb();
-      if (dbState) {
-        dbState.players = dbState.players.filter(p => p.id !== game.myId);
-        if (dbState.players.length > 0) {
-          const state = dbState;
-          broadcastState(state);
-          await persistState(state);
+      const state = await readState();
+      if (state) {
+        state.players = state.players.filter(p => p.id !== game.myId);
+        if (state.players.length > 0) {
+          await supabase.from('rooms').update({ state }).eq('code', game.roomId);
         } else {
           await supabase.from('rooms').delete().eq('code', game.roomId);
         }
