@@ -18,7 +18,9 @@ export const game = $state({
 
 let channel = null;
 let connectTimer = null;
+let pollTimer = null;
 const CONNECT_TIMEOUT = 12000;
+const POLL_INTERVAL = 1500;
 
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
@@ -44,6 +46,18 @@ function applyState(raw) {
   }
 }
 
+async function pollState() {
+  if (!game.roomId) return;
+  try {
+    const { data } = await supabase
+      .from('rooms')
+      .select('state')
+      .eq('code', game.roomId)
+      .single();
+    if (data?.state) applyState(data.state);
+  } catch (_) {}
+}
+
 async function subscribeRoom(code) {
   if (channel) await supabase.removeChannel(channel);
   channel = supabase.channel(`room-${code}`);
@@ -51,6 +65,8 @@ async function subscribeRoom(code) {
     { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
     (payload) => { applyState(payload.new?.state); }
   ).subscribe();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollState, POLL_INTERVAL);
 }
 
 async function readState() {
@@ -199,6 +215,7 @@ export async function leaveRoom() {
 
 async function cleanup() {
   clearTimeout(connectTimer);
+  if (pollTimer) clearInterval(pollTimer);
   if (channel) {
     await supabase.removeChannel(channel);
     channel = null;
