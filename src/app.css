@@ -130,17 +130,9 @@ input::placeholder {
   color: white;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
 .btn-secondary {
   background: var(--secondary);
   color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--secondary-hover);
 }
 
 .btn-danger {
@@ -149,20 +141,10 @@ input::placeholder {
   border: 1px solid var(--danger);
 }
 
-.btn-danger:hover {
-  background: var(--danger);
-  color: white;
-}
-
 .btn-outline {
   background: transparent;
   color: var(--primary);
   border: 1px solid var(--primary);
-}
-
-.btn-outline:hover {
-  background: var(--primary);
-  color: white;
 }
 
 .btn-small {
@@ -366,10 +348,39 @@ input::placeholder {
   position: relative;
 }
 
-.poker-card:hover {
-  border-color: var(--primary);
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+@media (hover: hover) {
+  .poker-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+
+  .btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--secondary-hover);
+  }
+
+  .btn-danger:hover {
+    background: var(--danger);
+    color: white;
+  }
+
+  .btn-outline:hover {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-reveal:hover {
+    background: #16a34a;
+    transform: scale(1.03);
+  }
 }
 
 .poker-card.selected {
@@ -414,11 +425,6 @@ input::placeholder {
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
-}
-
-.btn-reveal:hover {
-  background: #16a34a;
-  transform: scale(1.03);
 }
 
 .btn-reveal:active {
