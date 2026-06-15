@@ -483,13 +483,15 @@ input::placeholder {
 
   .room-info h2 {
     font-size: 0.9rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-shrink: 0;
   }
 
-  .room-info .btn {
-    flex-shrink: 0;
+  .game-room header .btn {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   main {
