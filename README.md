@@ -12,6 +12,6 @@
 - Keine Anmeldung: Nur Name eingeben, loslegen
 
 ## Technik
-Framework: Svelte 5 + Vite
-Backend: Supabase (PostgreSQL + Realtime)
-Hosting: GitHub Pages (via Actions)
+- Framework: Svelte 5 + Vite
+- Backend: Supabase (PostgreSQL + Realtime)
+- Hosting: GitHub Pages (via Actions)
