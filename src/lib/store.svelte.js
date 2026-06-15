@@ -1,12 +1,4 @@
-import Peer from 'peerjs';
-
-const ICE_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-  ]
-};
+import { supabase } from './supabase.js';
 
 export const CARD_VALUES = [1, 2, 3, 5, 8, 13, 20, 40, 100, '?', '☕'];
 
@@ -24,179 +16,195 @@ export const game = $state({
   revealedCards: {},
 });
 
-let peer = null;
-let hostConn = null;
-let connections = [];
+let channel = null;
 let connectTimer = null;
-
 const CONNECT_TIMEOUT = 12000;
+
+function generateId() {
+  return Math.random().toString(36).substring(2, 10);
+}
 
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-function broadcastState() {
-  const msg = {
-    type: 'state',
-    players: game.players.map(p => ({ id: p.id, name: p.name, hasVoted: p.hasVoted })),
-    phase: game.phase,
-    revealedCards: {},
-  };
-  if (game.phase === 'revealed') {
-    msg.revealedCards = Object.fromEntries(
-      game.players.map(p => [p.id, p.cardValue])
-    );
+function applyState(raw) {
+  if (!raw) return;
+  const isRevealedNow = game.phase === 'revealed';
+  const wasVoting = game.phase === 'voting';
+  game.players = raw.players || [];
+  game.phase = raw.phase || 'voting';
+  game.revealedCards = raw.revealedCards || {};
+  game.connected = true;
+  game.connecting = false;
+  game.error = '';
+  const hostId = raw.hostId || game.players[0]?.id || '';
+  game.isHost = hostId === game.myId;
+  if (game.phase === 'voting' && isRevealedNow) {
+    game.selectedCard = null;
   }
-  connections.forEach(c => { if (c.open) c.send(msg); });
 }
 
-export function createRoom(name) {
+async function subscribeRoom(code) {
+  if (channel) await supabase.removeChannel(channel);
+  channel = supabase.channel(`room-${code}`);
+  channel.on('postgres_changes',
+    { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
+    (payload) => { applyState(payload.new?.state); }
+  ).subscribe();
+}
+
+async function readState() {
+  const { data, error } = await supabase
+    .from('rooms')
+    .select('state')
+    .eq('code', game.roomId)
+    .single();
+  if (error) throw error;
+  return data?.state;
+}
+
+async function writeState() {
+  const state = {
+    players: game.players,
+    phase: game.phase,
+    revealedCards: game.revealedCards,
+    hostId: game.players[0]?.id || game.myId,
+  };
+  await supabase.from('rooms').upsert(
+    { code: game.roomId, state },
+    { onConflict: 'code' }
+  );
+}
+
+export async function createRoom(name) {
   cleanup();
   game.myName = name;
+  game.myId = generateId();
   game.isHost = true;
   game.connecting = true;
   game.error = '';
   const code = generateRoomCode();
   game.roomId = code;
-  const peerId = `sp-${code}`;
-  peer = new Peer(peerId, { config: ICE_CONFIG });
   connectTimer = setTimeout(() => {
     if (!game.connected) {
-      game.error = 'Verbindung zum Signaling-Server fehlgeschlagen. Prüfe Firewall/Netzwerk.';
-      game.connecting = false;
+      game.error = 'Verbindung fehlgeschlagen. Prüfe Firewall/Netzwerk.';
       cleanup();
     }
   }, CONNECT_TIMEOUT);
-  peer.on('open', () => {
-    clearTimeout(connectTimer);
-    game.myId = peer.id;
-    game.players = [{ id: peer.id, name, hasVoted: false, cardValue: null }];
+  try {
+    await subscribeRoom(code);
+    game.players = [{ id: game.myId, name, hasVoted: false, cardValue: null }];
     game.phase = 'voting';
-    game.connected = true;
-    game.connecting = false;
-    game.error = '';
-  });
-  peer.on('connection', conn => {
-    connections.push(conn);
-    conn.on('data', data => {
-      if (data.type === 'join') {
-        game.players = [...game.players, {
-          id: conn.peer, name: data.name, hasVoted: false, cardValue: null
-        }];
-        broadcastState();
-      } else if (data.type === 'vote') {
-        game.players = game.players.map(p =>
-          p.id === conn.peer
-            ? { ...p, cardValue: data.value, hasVoted: true }
-            : p
-        );
-        broadcastState();
-      }
+    game.revealedCards = {};
+    await writeState();
+    clearTimeout(connectTimer);
+    applyState({
+      players: game.players,
+      phase: 'voting',
+      revealedCards: {},
+      hostId: game.myId,
     });
-    conn.on('close', () => {
-      connections = connections.filter(c => c !== conn);
-      game.players = game.players.filter(p => p.id !== conn.peer);
-      broadcastState();
-    });
-  });
-  peer.on('error', err => {
-    if (err.type === 'unavailable-id') {
-      game.error = 'Room name already taken. Try again.';
-    } else {
-      game.error = err.message;
-    }
+  } catch (err) {
+    clearTimeout(connectTimer);
+    game.error = `Fehler: ${err.message}`;
     game.connecting = false;
-  });
+  }
 }
 
-export function joinRoom(name, code) {
+export async function joinRoom(name, code) {
   cleanup();
   game.myName = name;
+  game.myId = generateId();
   game.isHost = false;
   game.connecting = true;
   game.error = '';
   game.roomId = code;
-  peer = new Peer({ config: ICE_CONFIG });
-  const hostId = `sp-${code}`;
   connectTimer = setTimeout(() => {
     if (!game.connected) {
-      game.error = 'Verbindung zum Signaling-Server fehlgeschlagen. Prüfe Firewall/Netzwerk.';
-      game.connecting = false;
+      game.error = 'Verbindung fehlgeschlagen. Prüfe Firewall/Netzwerk.';
       cleanup();
     }
   }, CONNECT_TIMEOUT);
-  peer.on('open', () => {
+  try {
+    await subscribeRoom(code);
+    const state = await readState();
+    if (!state) {
+      game.error = 'Raum nicht gefunden. Code prüfen.';
+      game.connecting = false;
+      clearTimeout(connectTimer);
+      return;
+    }
+    const newPlayer = { id: game.myId, name, hasVoted: false, cardValue: null };
+    state.players = [...(state.players || []), newPlayer];
+    await supabase.from('rooms').update({ state }).eq('code', code);
+    applyState(state);
     clearTimeout(connectTimer);
-    game.myId = peer.id;
-    hostConn = peer.connect(hostId);
-    hostConn.on('open', () => hostConn.send({ type: 'join', name }));
-    hostConn.on('data', data => {
-      if (data.type === 'state') {
-        const wasRevealed = game.phase === 'revealed';
-        game.players = data.players;
-        game.phase = data.phase;
-        game.revealedCards = data.revealedCards || {};
-        game.connected = true;
-        game.connecting = false;
-        game.error = '';
-        if (data.phase === 'voting' && wasRevealed) {
-          game.selectedCard = null;
-        }
-      }
-    });
-    hostConn.on('close', () => {
-      game.error = 'Verbindung zum Host getrennt.';
-      game.connected = false;
-    });
-  });
-  peer.on('error', err => {
-    game.error = `Verbindungsfehler: ${err.message}`;
+  } catch (err) {
+    clearTimeout(connectTimer);
+    game.error = `Fehler: ${err.message}`;
     game.connecting = false;
-  });
-}
-
-export function selectCard(value) {
-  game.selectedCard = value;
-  if (game.isHost) {
-    game.players = game.players.map(p =>
-      p.id === peer.id
-        ? { ...p, cardValue: value, hasVoted: true }
-        : p
-    );
-    broadcastState();
-  } else if (hostConn?.open) {
-    hostConn.send({ type: 'vote', value });
   }
 }
 
-export function revealCards() {
-  if (!game.isHost) return;
-  game.phase = 'revealed';
-  game.revealedCards = Object.fromEntries(
-    game.players.map(p => [p.id, p.cardValue])
+export async function selectCard(value) {
+  game.selectedCard = value;
+  game.players = game.players.map(p =>
+    p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
   );
-  broadcastState();
+  const state = await readState();
+  if (!state) return;
+  state.players = state.players.map(p =>
+    p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
+  );
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
-export function newRound() {
+export async function revealCards() {
   if (!game.isHost) return;
-  game.selectedCard = null;
-  game.phase = 'voting';
-  game.players = game.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
-  game.revealedCards = {};
-  broadcastState();
+  const state = await readState();
+  if (!state) return;
+  state.phase = 'revealed';
+  state.revealedCards = Object.fromEntries(
+    state.players.map(p => [p.id, p.cardValue])
+  );
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
-export function leaveRoom() {
+export async function newRound() {
+  if (!game.isHost) return;
+  const state = await readState();
+  if (!state) return;
+  state.phase = 'voting';
+  state.players = state.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
+  state.revealedCards = {};
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  game.selectedCard = null;
+}
+
+export async function leaveRoom() {
+  if (game.roomId && game.myId) {
+    try {
+      const state = await readState();
+      if (state) {
+        state.players = state.players.filter(p => p.id !== game.myId);
+        if (state.players.length > 0) {
+          await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+        } else {
+          await supabase.from('rooms').delete().eq('code', game.roomId);
+        }
+      }
+    } catch (_) {}
+  }
   cleanup();
 }
 
-function cleanup() {
+async function cleanup() {
   clearTimeout(connectTimer);
-  if (hostConn) { hostConn.close(); hostConn = null; }
-  connections.forEach(c => c.close());
-  connections = [];
-  if (peer) { peer.destroy(); peer = null; }
+  if (channel) {
+    await supabase.removeChannel(channel);
+    channel = null;
+  }
   game.myId = '';
   game.selectedCard = null;
   game.phase = 'voting';
