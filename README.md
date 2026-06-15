@@ -3,8 +3,7 @@
 
 ## Features
 - Räume erstellen/beitreten: 6-stelliger Code, Teilen via Link
-- Echtzeit-Synchronisation: Supabase Realtime (postgres_changes + Polling-Fallback)
-- Spieler sehen wer schon gewählt hat (✓ Bereit / Wählt...)
+- Echtzeit-Synchronisation: Spieler sehen wer schon gewählt hat (✓ Bereit / Wählt...)
 - Gleichzeitiges Aufdecken: 3D-Flip-Animation in zufälliger Reihenfolge
 - Host-Funktionen: Aufdecken, Neue Runde, Leave-Bestätigung bei >1 Spieler
 - Fibonaci-Deck: 1, 2, 3, 5, 8, 13, 20, 40, 100, ?, ☕
