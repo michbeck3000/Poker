@@ -367,6 +367,18 @@ input::placeholder {
   font-size: 0.9rem;
 }
 
+.connecting-hint {
+  text-align: center;
+  color: var(--primary);
+  font-size: 0.9rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 .selected-hint {
   text-align: center;
   font-size: 0.95rem;

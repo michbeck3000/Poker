@@ -35,8 +35,8 @@
       bind:value={game.myName}
     />
 
-    <button class="btn btn-primary" onclick={handleCreate} disabled={!game.myName.trim()}>
-      Raum erstellen
+    <button class="btn btn-primary" onclick={handleCreate} disabled={!game.myName.trim() || game.connecting}>
+      {game.connecting ? 'Verbinde...' : 'Raum erstellen'}
     </button>
 
     <div class="divider">
@@ -51,11 +51,15 @@
         onkeydown={handleKeydown}
         maxlength="6"
       />
-      <button class="btn btn-secondary" onclick={handleJoin} disabled={!game.myName.trim() || !joinCode.trim()}>
-        Beitreten
+      <button class="btn btn-secondary" onclick={handleJoin} disabled={!game.myName.trim() || !joinCode.trim() || game.connecting}>
+        {game.connecting ? 'Verbinde...' : 'Beitreten'}
       </button>
     </div>
   </div>
+
+  {#if game.connecting}
+    <p class="connecting-hint">Stelle Verbindung her...</p>
+  {/if}
 
   {#if game.error}
     <p class="error">{game.error}</p>

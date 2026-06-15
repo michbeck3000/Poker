@@ -18,6 +18,7 @@ export const game = $state({
   selectedCard: null,
   phase: 'voting',
   connected: false,
+  connecting: false,
   players: [],
   error: '',
   revealedCards: {},
@@ -26,6 +27,9 @@ export const game = $state({
 let peer = null;
 let hostConn = null;
 let connections = [];
+let connectTimer = null;
+
+const CONNECT_TIMEOUT = 12000;
 
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -50,15 +54,26 @@ export function createRoom(name) {
   cleanup();
   game.myName = name;
   game.isHost = true;
+  game.connecting = true;
+  game.error = '';
   const code = generateRoomCode();
   game.roomId = code;
   const peerId = `sp-${code}`;
   peer = new Peer(peerId, { config: ICE_CONFIG });
+  connectTimer = setTimeout(() => {
+    if (!game.connected) {
+      game.error = 'Verbindung zum Signaling-Server fehlgeschlagen. Prüfe Firewall/Netzwerk.';
+      game.connecting = false;
+      cleanup();
+    }
+  }, CONNECT_TIMEOUT);
   peer.on('open', () => {
+    clearTimeout(connectTimer);
     game.myId = peer.id;
     game.players = [{ id: peer.id, name, hasVoted: false, cardValue: null }];
     game.phase = 'voting';
     game.connected = true;
+    game.connecting = false;
     game.error = '';
   });
   peer.on('connection', conn => {
@@ -90,6 +105,7 @@ export function createRoom(name) {
     } else {
       game.error = err.message;
     }
+    game.connecting = false;
   });
 }
 
@@ -97,10 +113,20 @@ export function joinRoom(name, code) {
   cleanup();
   game.myName = name;
   game.isHost = false;
+  game.connecting = true;
+  game.error = '';
   game.roomId = code;
   peer = new Peer({ config: ICE_CONFIG });
   const hostId = `sp-${code}`;
+  connectTimer = setTimeout(() => {
+    if (!game.connected) {
+      game.error = 'Verbindung zum Signaling-Server fehlgeschlagen. Prüfe Firewall/Netzwerk.';
+      game.connecting = false;
+      cleanup();
+    }
+  }, CONNECT_TIMEOUT);
   peer.on('open', () => {
+    clearTimeout(connectTimer);
     game.myId = peer.id;
     hostConn = peer.connect(hostId);
     hostConn.on('open', () => hostConn.send({ type: 'join', name }));
@@ -111,6 +137,7 @@ export function joinRoom(name, code) {
         game.phase = data.phase;
         game.revealedCards = data.revealedCards || {};
         game.connected = true;
+        game.connecting = false;
         game.error = '';
         if (data.phase === 'voting' && wasRevealed) {
           game.selectedCard = null;
@@ -118,11 +145,14 @@ export function joinRoom(name, code) {
       }
     });
     hostConn.on('close', () => {
-      game.error = 'Disconnected from host.';
+      game.error = 'Verbindung zum Host getrennt.';
       game.connected = false;
     });
   });
-  peer.on('error', err => { game.error = err.message; });
+  peer.on('error', err => {
+    game.error = `Verbindungsfehler: ${err.message}`;
+    game.connecting = false;
+  });
 }
 
 export function selectCard(value) {
@@ -162,6 +192,7 @@ export function leaveRoom() {
 }
 
 function cleanup() {
+  clearTimeout(connectTimer);
   if (hostConn) { hostConn.close(); hostConn = null; }
   connections.forEach(c => c.close());
   connections = [];
@@ -170,6 +201,7 @@ function cleanup() {
   game.selectedCard = null;
   game.phase = 'voting';
   game.connected = false;
+  game.connecting = false;
   game.players = [];
   game.error = '';
   game.isHost = false;
