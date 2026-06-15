@@ -184,6 +184,7 @@ export async function revealCards() {
     state.players.map(p => [p.id, p.cardValue])
   );
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  applyState(state);
 }
 
 export async function newRound() {
@@ -194,6 +195,7 @@ export async function newRound() {
   state.players = state.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
   state.revealedCards = {};
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  applyState(state);
 }
 
 export async function leaveRoom() {
