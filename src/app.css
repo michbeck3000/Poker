@@ -191,6 +191,11 @@ input::placeholder {
   gap: 8px;
 }
 
+.join-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
 .join-row input {
   flex: 1;
   text-transform: uppercase;
@@ -511,19 +516,6 @@ input::placeholder {
 
   .card-input {
     gap: 8px;
-  }
-
-  .join-row {
-    flex-wrap: wrap;
-  }
-
-  .join-row input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .join-row .btn {
-    flex: 1;
   }
 }
 
