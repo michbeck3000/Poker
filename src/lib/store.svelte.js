@@ -73,6 +73,10 @@ async function subscribeRoom(code) {
   channel.on('broadcast', { event: 'state' }, (payload) => {
     applyState(payload);
   });
+  channel.on('postgres_changes',
+    { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
+    (payload) => { applyState(payload.new?.state); }
+  );
   await channel.subscribe();
 }
 
