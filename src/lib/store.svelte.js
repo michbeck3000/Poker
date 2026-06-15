@@ -52,13 +52,28 @@ function buildState() {
   };
 }
 
+function broadcastState(state) {
+  if (channel) {
+    channel.send({ type: 'broadcast', event: 'state', payload: state }).catch(() => {});
+  }
+}
+
+async function persistState(state) {
+  try {
+    await supabase.from('rooms').upsert(
+      { code: game.roomId, state },
+      { onConflict: 'code' }
+    );
+  } catch (_) {}
+}
+
 async function subscribeRoom(code) {
   if (channel) await supabase.removeChannel(channel);
   channel = supabase.channel(`room-${code}`);
-  channel.on('postgres_changes',
-    { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
-    (payload) => { applyState(payload.new?.state); }
-  ).subscribe();
+  channel.on('broadcast', { event: 'state' }, (payload) => {
+    applyState(payload);
+  });
+  await channel.subscribe();
 }
 
 async function readStateFromDb() {
@@ -91,10 +106,7 @@ export async function createRoom(name) {
     game.phase = 'voting';
     game.revealedCards = {};
     const state = buildState();
-    await supabase.from('rooms').upsert(
-      { code: game.roomId, state },
-      { onConflict: 'code' }
-    );
+    await persistState(state);
     applyState(state);
     clearTimeout(connectTimer);
   } catch (err) {
@@ -128,8 +140,10 @@ export async function joinRoom(name, code) {
       return;
     }
     dbState.players = [...(dbState.players || []), { id: game.myId, name, hasVoted: false, cardValue: null }];
-    await supabase.from('rooms').update({ state: dbState }).eq('code', game.roomId);
-    applyState(dbState);
+    const state = dbState;
+    broadcastState(state);
+    await persistState(state);
+    applyState(state);
     clearTimeout(connectTimer);
   } catch (err) {
     clearTimeout(connectTimer);
@@ -145,8 +159,10 @@ export async function selectCard(value) {
   dbState.players = dbState.players.map(p =>
     p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
   );
-  game.players = dbState.players;
-  await supabase.from('rooms').update({ state: dbState }).eq('code', game.roomId);
+  const state = dbState;
+  game.players = state.players;
+  broadcastState(state);
+  await persistState(state);
 }
 
 export async function revealCards() {
@@ -157,8 +173,10 @@ export async function revealCards() {
   dbState.revealedCards = Object.fromEntries(
     dbState.players.map(p => [p.id, p.cardValue])
   );
-  await supabase.from('rooms').update({ state: dbState }).eq('code', game.roomId);
-  applyState(dbState);
+  const state = dbState;
+  broadcastState(state);
+  await persistState(state);
+  applyState(state);
 }
 
 export async function newRound() {
@@ -168,8 +186,10 @@ export async function newRound() {
   dbState.phase = 'voting';
   dbState.players = dbState.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
   dbState.revealedCards = {};
-  await supabase.from('rooms').update({ state: dbState }).eq('code', game.roomId);
-  applyState(dbState);
+  const state = dbState;
+  broadcastState(state);
+  await persistState(state);
+  applyState(state);
 }
 
 export async function leaveRoom() {
@@ -179,7 +199,9 @@ export async function leaveRoom() {
       if (dbState) {
         dbState.players = dbState.players.filter(p => p.id !== game.myId);
         if (dbState.players.length > 0) {
-          await supabase.from('rooms').update({ state: dbState }).eq('code', game.roomId);
+          const state = dbState;
+          broadcastState(state);
+          await persistState(state);
         } else {
           await supabase.from('rooms').delete().eq('code', game.roomId);
         }
