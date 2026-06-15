@@ -152,32 +152,36 @@ export async function selectCard(value) {
   game.players = game.players.map(p =>
     p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
   );
-  const state = await readState();
-  if (!state) return;
-  state.players = state.players.map(p =>
-    p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
-  );
+  const state = {
+    players: game.players,
+    phase: game.phase,
+    revealedCards: game.revealedCards,
+    hostId: game.players[0]?.id || game.myId,
+  };
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
 export async function revealCards() {
   if (!game.isHost) return;
-  const state = await readState();
-  if (!state) return;
-  state.phase = 'revealed';
-  state.revealedCards = Object.fromEntries(
-    state.players.map(p => [p.id, p.cardValue])
-  );
+  const state = {
+    players: game.players,
+    phase: 'revealed',
+    revealedCards: Object.fromEntries(
+      game.players.map(p => [p.id, p.cardValue])
+    ),
+    hostId: game.myId,
+  };
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
 
 export async function newRound() {
   if (!game.isHost) return;
-  const state = await readState();
-  if (!state) return;
-  state.phase = 'voting';
-  state.players = state.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
-  state.revealedCards = {};
+  const state = {
+    players: game.players.map(p => ({ ...p, cardValue: null, hasVoted: false })),
+    phase: 'voting',
+    revealedCards: {},
+    hostId: game.myId,
+  };
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
   game.selectedCard = null;
 }
