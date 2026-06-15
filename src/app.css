@@ -466,21 +466,25 @@ input::placeholder {
   }
 
   .game-room header {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .room-info {
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  .room-info h2 {
-    font-size: 0.95rem;
+  .room-info {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: nowrap;
   }
 
-  .game-room header .btn-danger {
-    align-self: flex-end;
+  .room-info h2 {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .room-info .btn {
+    flex-shrink: 0;
   }
 
   main {
