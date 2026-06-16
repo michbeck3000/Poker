@@ -1,0 +1,19 @@
+name: Cleanup old rooms
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete rooms inactive for >24h
+        run: |
+          curl -s -X POST \
+            "https://zvpyxyhcwxdvlxastjuq.supabase.co/rest/v1/rpc/delete_old_rooms" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"hours": 24}'
