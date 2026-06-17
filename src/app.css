@@ -293,19 +293,8 @@ input::placeholder {
   font-weight: 600;
   font-size: 0.95rem;
   text-align: center;
-  width: 100%;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.name.marquee {
-  overflow: visible;
-  width: auto;
-  max-width: none;
-  text-overflow: unset;
-  animation: marquee 5s ease-in-out 1;
+  display: inline-block;
 }
 
 .card-back .name {
@@ -474,6 +463,10 @@ input::placeholder {
   0%, 15% { transform: translateX(0); }
   50% { transform: translateX(calc(100px - 100%)); }
   85%, 100% { transform: translateX(0); }
+}
+
+.name.marquee {
+  animation: marquee 5s ease-in-out 1;
 }
 
 @media (max-width: 480px) {
