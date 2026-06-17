@@ -287,6 +287,7 @@ input::placeholder {
   overflow: hidden;
   max-width: 100px;
   width: 100%;
+  text-align: center;
 }
 
 .player .name {

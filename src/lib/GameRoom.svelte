@@ -4,7 +4,6 @@
   let copied = $state(false);
   let flipDelays = $state({});
   let marqueeActive = $state({});
-  let nameEls = [];
 
   function shuffleDelays() {
     const delays = game.players.map((_, i) => i * 80);
@@ -30,16 +29,17 @@
     }
   });
 
-  function isTruncated(playerId) {
-    const idx = game.players.findIndex(p => p.id === playerId);
-    const el = nameEls[idx];
+  function isTruncated(el) {
     return el && el.scrollWidth > el.clientWidth;
   }
 
   $effect(() => {
     const interval = setInterval(() => {
-      game.players.forEach(p => {
-        marqueeActive[p.id] = isTruncated(p.id);
+      const wraps = document.querySelectorAll('.card-front .name-wrap');
+      wraps.forEach((wrap, i) => {
+        if (game.players[i]) {
+          marqueeActive[game.players[i].id] = isTruncated(wrap);
+        }
       });
       setTimeout(() => {
         game.players.forEach(p => { marqueeActive[p.id] = false; });
@@ -87,7 +87,7 @@
         >
           <div class="card-inner">
             <div class="card-front">
-              <span class="name-wrap" bind:this={nameEls[i]}>
+              <span class="name-wrap">
                 <span class="name" class:marquee={marqueeActive[player.id]}>{player.name}</span>
               </span>
               <span class="status" class:ready={player.hasVoted}>
