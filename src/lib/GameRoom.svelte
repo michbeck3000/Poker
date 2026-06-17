@@ -43,8 +43,8 @@
       });
       setTimeout(() => {
         game.players.forEach(p => { marqueeActive[p.id] = false; });
-      }, 5000);
-    }, 20000);
+      }, 8000);
+    }, 15000);
     return () => clearInterval(interval);
   });
 
