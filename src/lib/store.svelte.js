@@ -3,8 +3,8 @@ import { supabase } from './supabase.js';
 export const CARD_VALUES = [1, 2, 3, 5, 8, 13, 20, 40, 100, '?', '☕'];
 
 export const game = $state({
-  myName: '',
-  myId: '',
+  myName: localStorage.getItem('scrumPokerName') || '',
+  myId: localStorage.getItem('scrumPokerId') || '',
   roomId: '',
   isHost: false,
   selectedCard: null,
@@ -91,10 +91,16 @@ async function writeState() {
   );
 }
 
+function persistSession() {
+  localStorage.setItem('scrumPokerId', game.myId);
+  localStorage.setItem('scrumPokerName', game.myName);
+  if (game.roomId) localStorage.setItem('scrumPokerRoom', game.roomId);
+}
+
 export async function createRoom(name) {
   cleanup();
   game.myName = name;
-  game.myId = generateId();
+  game.myId = game.myId || generateId();
   game.isHost = true;
   game.connecting = true;
   game.error = '';
@@ -113,6 +119,7 @@ export async function createRoom(name) {
     game.revealedCards = {};
     await writeState();
     clearTimeout(connectTimer);
+    persistSession();
     applyState({
       players: game.players,
       phase: 'voting',
@@ -126,10 +133,10 @@ export async function createRoom(name) {
   }
 }
 
-export async function joinRoom(name, code) {
+export async function joinRoom(name, code, existingId) {
   cleanup();
   game.myName = name;
-  game.myId = generateId();
+  game.myId = existingId || game.myId || generateId();
   game.isHost = false;
   game.connecting = true;
   game.error = '';
@@ -149,9 +156,16 @@ export async function joinRoom(name, code) {
       clearTimeout(connectTimer);
       return;
     }
-    const newPlayer = { id: game.myId, name, hasVoted: false, cardValue: null };
-    state.players = [...(state.players || []), newPlayer];
+    const existing = state.players.find(p => p.id === game.myId);
+    if (existing) {
+      existing.name = name;
+      existing.hasVoted = false;
+      existing.cardValue = null;
+    } else {
+      state.players.push({ id: game.myId, name, hasVoted: false, cardValue: null });
+    }
     await supabase.from('rooms').update({ state }).eq('code', code);
+    persistSession();
     applyState(state);
     clearTimeout(connectTimer);
   } catch (err) {
@@ -175,7 +189,6 @@ export async function selectCard(value) {
 }
 
 export async function revealCards() {
-  if (!game.isHost) return;
   const state = await readState();
   if (!state) return;
   state.phase = 'revealed';
@@ -187,7 +200,6 @@ export async function revealCards() {
 }
 
 export async function newRound() {
-  if (!game.isHost) return;
   const state = await readState();
   if (!state) return;
   state.phase = 'voting';
@@ -211,6 +223,7 @@ export async function leaveRoom() {
       }
     } catch (_) {}
   }
+  localStorage.removeItem('scrumPokerRoom');
   cleanup();
 }
 
@@ -221,7 +234,7 @@ async function cleanup() {
     await supabase.removeChannel(channel);
     channel = null;
   }
-  game.myId = '';
+  game.roomId = '';
   game.selectedCard = null;
   game.phase = 'voting';
   game.connected = false;
@@ -229,6 +242,5 @@ async function cleanup() {
   game.players = [];
   game.error = '';
   game.isHost = false;
-  game.roomId = '';
   game.revealedCards = {};
 }

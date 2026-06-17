@@ -8,10 +8,10 @@
   $effect(() => {
     const hash = window.location.hash.replace('#', '');
     if (hash) {
-      const stored = sessionStorage.getItem('scrumPokerName');
+      const stored = localStorage.getItem('scrumPokerName');
       if (stored) {
         game.myName = stored;
-        joinRoom(stored, hash);
+        joinRoom(stored, hash, game.myId);
       } else {
         pendingRoomCode = hash;
       }
@@ -20,7 +20,7 @@
 
   $effect(() => {
     if (game.myName && game.connected) {
-      sessionStorage.setItem('scrumPokerName', game.myName);
+      localStorage.setItem('scrumPokerName', game.myName);
     }
   });
 </script>

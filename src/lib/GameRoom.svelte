@@ -2,7 +2,6 @@
   import { game, CARD_VALUES, selectCard, revealCards, newRound, leaveRoom } from './store.svelte.js';
 
   let copied = $state(false);
-  let showLeaveConfirm = $state(false);
   let flipDelays = $state({});
 
   function shuffleDelays() {
@@ -29,31 +28,10 @@
     }
   });
 
-  function handleLeave() {
-    if (game.isHost && game.players.length > 1) {
-      showLeaveConfirm = true;
-    } else {
-      leaveRoom();
-    }
-  }
-
-  function confirmLeave() {
-    showLeaveConfirm = false;
-    leaveRoom();
-  }
-
-  function cancelLeave() {
-    showLeaveConfirm = false;
-  }
-
   function average() {
     const vals = Object.values(game.revealedCards).filter(v => typeof v === 'number');
     if (vals.length === 0) return '-';
     return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
-  }
-
-  function getPlayerName(id) {
-    return game.players.find(p => p.id === id)?.name || '?';
   }
 
   function copyRoomLink() {
@@ -73,8 +51,8 @@
         {copied ? '✓ Kopiert!' : 'Link kopieren'}
       </button>
     </div>
-    <button class="btn btn-small btn-danger" onclick={handleLeave}>
-      {game.isHost ? 'Raum schließen' : 'Verlassen'}
+    <button class="btn btn-small btn-danger" onclick={leaveRoom}>
+      Verlassen
     </button>
   </header>
 
@@ -122,33 +100,16 @@
         <p class="selected-hint">Ausgewählt: <strong>{game.selectedCard}</strong></p>
       {/if}
 
-      {#if game.isHost}
-        <button class="btn btn-reveal" onclick={revealCards}>
-          Aufdecken
-        </button>
-      {/if}
+      <button class="btn btn-reveal" onclick={revealCards}>
+        Aufdecken
+      </button>
     {:else}
       <div class="results">
         <p class="average">Durchschnitt: <strong>{average()}</strong></p>
-        {#if game.isHost}
-          <button class="btn btn-primary" onclick={newRound}>
-            Neue Runde
-          </button>
-        {/if}
+        <button class="btn btn-primary" onclick={newRound}>
+          Neue Runde
+        </button>
       </div>
     {/if}
   </div>
 </div>
-
-{#if showLeaveConfirm}
-  <div class="overlay" onclick={cancelLeave} onkeydown={(e) => e.key === 'Escape' && cancelLeave()} role="button" tabindex="0">
-    <div class="confirm-dialog" role="dialog" aria-labelledby="confirm-title">
-      <h3 id="confirm-title">Raum wirklich schließen?</h3>
-      <p>Alle verbundenen Spieler werden getrennt.</p>
-      <div class="confirm-actions">
-        <button class="btn btn-secondary" onclick={cancelLeave}>Abbrechen</button>
-        <button class="btn btn-danger" onclick={confirmLeave}>Schließen</button>
-      </div>
-    </div>
-  </div>
-{/if}
