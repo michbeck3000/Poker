@@ -4,7 +4,7 @@
   let copied = $state(false);
   let flipDelays = $state({});
   let marqueeActive = $state({});
-  let nameEls = $state([]);
+  let nameEls = [];
 
   function shuffleDelays() {
     const delays = game.players.map((_, i) => i * 80);
@@ -87,14 +87,18 @@
         >
           <div class="card-inner">
             <div class="card-front">
-              <span class="name" class:marquee={marqueeActive[player.id]} bind:this={nameEls[i]}>{player.name}</span>
+              <span class="name-wrap">
+                <span class="name" class:marquee={marqueeActive[player.id]} bind:this={nameEls[i]}>{player.name}</span>
+              </span>
               <span class="status" class:ready={player.hasVoted}>
                 {player.hasVoted ? '✓ Bereit' : 'Wählt...'}
               </span>
             </div>
             <div class="card-back">
               <span class="revealed-value">{game.revealedCards[player.id] ?? '-'}</span>
-              <span class="name" class:marquee={marqueeActive[player.id]}>{player.name}</span>
+              <span class="name-wrap">
+                <span class="name" class:marquee={marqueeActive[player.id]}>{player.name}</span>
+              </span>
             </div>
           </div>
         </div>

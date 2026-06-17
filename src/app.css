@@ -283,15 +283,18 @@ input::placeholder {
   border-color: var(--success);
 }
 
+.player .name-wrap {
+  overflow: hidden;
+  max-width: 100px;
+  width: 100%;
+}
+
 .player .name {
   font-weight: 600;
   font-size: 0.95rem;
   text-align: center;
-  width: 100%;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-block;
 }
 
 .card-back .name {
