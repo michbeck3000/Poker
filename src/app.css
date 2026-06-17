@@ -483,6 +483,10 @@ input::placeholder {
   transform: translate(-50%, -100%);
 }
 
+.emoji-picker.below {
+  transform: translate(-50%, 0);
+}
+
 .flying-emoji-btn {
   background: none;
   border: none;

@@ -9,25 +9,33 @@
 
   let hoveringPlayerId = $state(null);
   let emojiPickerPos = $state({ x: 0, y: 0 });
+  let pickerAbove = $state(true);
+  let hideTimeout = null;
 
   function onPlayerEnter(playerId, e) {
+    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
     const rect = e.currentTarget.getBoundingClientRect();
-    emojiPickerPos = { x: rect.left + rect.width / 2, y: rect.top - 10 };
+    const x = rect.left + rect.width / 2;
+    if (rect.top < 60) {
+      pickerAbove = false;
+      emojiPickerPos = { x, y: rect.bottom + 10 };
+    } else {
+      pickerAbove = true;
+      emojiPickerPos = { x, y: rect.top - 10 };
+    }
     hoveringPlayerId = playerId;
   }
 
   function onPlayerLeave(e) {
-    const related = e.relatedTarget;
-    if (related?.closest?.('.emoji-picker')) return;
-    if (related?.classList?.contains('flying-emoji-btn')) return;
-    hoveringPlayerId = null;
+    hideTimeout = setTimeout(() => { hoveringPlayerId = null; }, 200);
   }
 
-  function onPickerLeave(e) {
-    const related = e.relatedTarget;
-    if (!related?.closest?.('.player')) {
-      hoveringPlayerId = null;
-    }
+  function onPickerEnter() {
+    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+  }
+
+  function onPickerLeave() {
+    hoveringPlayerId = null;
   }
 
   function throwEmoji(emoji, playerId) {
@@ -185,8 +193,10 @@
     {#if hoveringPlayerId !== null}
       <div
         class="emoji-picker"
+        class:below={!pickerAbove}
         style="left: {emojiPickerPos.x}px; top: {emojiPickerPos.y}px;"
         role="group"
+        onmouseenter={onPickerEnter}
         onmouseleave={onPickerLeave}
       >
         {#each THROW_EMOJIS as emoji}
