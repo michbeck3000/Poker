@@ -82,15 +82,17 @@
         rAF(animate);
       } else {
         rAF(() => {
-          el.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s';
+          const bc = 120;
+          el.style.transition = `transform ${bc}ms cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s`;
           el.style.transform = `translate(${endX}px, ${endY}px) scale(1.4)`;
-          setTimeout(() => {
-            el.style.transform = `translate(${endX}px, ${endY}px) scale(1)`;
-          }, 200);
+          setTimeout(() => { el.style.transform = `translate(${endX}px, ${endY}px) scale(0.75)`; }, bc);
+          setTimeout(() => { el.style.transform = `translate(${endX}px, ${endY}px) scale(1.15)`; }, bc * 2);
+          setTimeout(() => { el.style.transform = `translate(${endX}px, ${endY}px) scale(0.85)`; }, bc * 3);
+          setTimeout(() => { el.style.transform = `translate(${endX}px, ${endY}px) scale(1)`; }, bc * 4);
           setTimeout(() => {
             el.style.opacity = '0';
             setTimeout(() => el.remove(), 500);
-          }, 5200);
+          }, bc * 4 + 5000);
         });
       }
     }
