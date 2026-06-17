@@ -6,7 +6,6 @@ export const game = $state({
   myName: localStorage.getItem('scrumPokerName') || '',
   myId: localStorage.getItem('scrumPokerId') || '',
   roomId: '',
-  isHost: false,
   selectedCard: null,
   phase: 'voting',
   connected: false,
@@ -39,8 +38,6 @@ function applyState(raw) {
   game.connected = true;
   game.connecting = false;
   game.error = '';
-  const hostId = raw.hostId || game.players[0]?.id || '';
-  game.isHost = hostId === game.myId;
   if (game.phase === 'voting' && wasRevealed) {
     game.selectedCard = null;
   }
@@ -83,7 +80,6 @@ async function writeState() {
     players: game.players,
     phase: game.phase,
     revealedCards: game.revealedCards,
-    hostId: game.players[0]?.id || game.myId,
   };
   await supabase.from('rooms').upsert(
     { code: game.roomId, state },
@@ -101,7 +97,6 @@ export async function createRoom(name) {
   cleanup();
   game.myName = name;
   game.myId = game.myId || generateId();
-  game.isHost = true;
   game.connecting = true;
   game.error = '';
   const code = generateRoomCode();
@@ -124,7 +119,6 @@ export async function createRoom(name) {
       players: game.players,
       phase: 'voting',
       revealedCards: {},
-      hostId: game.myId,
     });
   } catch (err) {
     clearTimeout(connectTimer);
@@ -137,7 +131,6 @@ export async function joinRoom(name, code, existingId) {
   cleanup();
   game.myName = name;
   game.myId = existingId || game.myId || generateId();
-  game.isHost = false;
   game.connecting = true;
   game.error = '';
   game.roomId = code;
@@ -241,6 +234,5 @@ async function cleanup() {
   game.connecting = false;
   game.players = [];
   game.error = '';
-  game.isHost = false;
   game.revealedCards = {};
 }
