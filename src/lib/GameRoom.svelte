@@ -5,6 +5,79 @@
   let flipDelays = $state({});
   let marqueeActive = $state({});
 
+  const THROW_EMOJIS = ['🎯', '💩', '🔥', '❤️', '🎉', '⭐', '💀', '👑', '🌈', '🍕'];
+
+  let hoveringPlayerId = $state(null);
+  let emojiPickerPos = $state({ x: 0, y: 0 });
+
+  function onPlayerEnter(playerId, e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    emojiPickerPos = { x: rect.left + rect.width / 2, y: rect.top - 10 };
+    hoveringPlayerId = playerId;
+  }
+
+  function onPlayerLeave(e) {
+    const related = e.relatedTarget;
+    if (related?.closest?.('.emoji-picker')) return;
+    if (related?.classList?.contains('flying-emoji-btn')) return;
+    hoveringPlayerId = null;
+  }
+
+  function onPickerLeave(e) {
+    const related = e.relatedTarget;
+    if (!related?.closest?.('.player')) {
+      hoveringPlayerId = null;
+    }
+  }
+
+  function throwEmoji(emoji, playerId) {
+    hoveringPlayerId = null;
+    const playerEl = document.querySelector(`[data-player-id="${playerId}"]`);
+    if (!playerEl) return;
+
+    const playerRect = playerEl.getBoundingClientRect();
+    const endX = playerRect.left + playerRect.width / 2;
+    const endY = playerRect.top + playerRect.height / 2;
+
+    const side = Math.floor(Math.random() * 4);
+    let startX, startY;
+    switch (side) {
+      case 0: startX = Math.random() * window.innerWidth; startY = -60; break;
+      case 1: startX = window.innerWidth + 60; startY = Math.random() * window.innerHeight; break;
+      case 2: startX = Math.random() * window.innerWidth; startY = window.innerHeight + 60; break;
+      case 3: startX = -60; startY = Math.random() * window.innerHeight; break;
+    }
+
+    const midX = (startX + endX) / 2;
+    const ctrlX = midX + (Math.random() - 0.5) * 300;
+    const ctrlY = Math.min(startY, endY) - 150 - Math.random() * 100;
+
+    const el = document.createElement('div');
+    el.textContent = emoji;
+    el.style.cssText = 'position:fixed;left:0;top:0;font-size:36px;pointer-events:none;z-index:9999;line-height:1;';
+    document.body.appendChild(el);
+
+    const duration = 700 + Math.random() * 400;
+    const startTime = performance.now();
+    const rAF = requestAnimationFrame;
+
+    function animate(time) {
+      const t = Math.min((time - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      const x = (1 - ease) * (1 - ease) * startX + 2 * (1 - ease) * ease * ctrlX + ease * ease * endX;
+      const y = (1 - ease) * (1 - ease) * startY + 2 * (1 - ease) * ease * ctrlY + ease * ease * endY;
+      const scale = 1 + (1 - t) * 0.5;
+      el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+
+      if (t < 1) {
+        rAF(animate);
+      } else {
+        el.remove();
+      }
+    }
+    rAF(animate);
+  }
+
   function shuffleDelays() {
     const delays = game.players.map((_, i) => i * 80);
     for (let i = delays.length - 1; i > 0; i--) {
@@ -84,6 +157,10 @@
           class:me={player.id === game.myId}
           class:flipped={game.phase === 'revealed'}
           style="--delay: {flipDelays[player.id] ?? 0}ms"
+          data-player-id={player.id}
+          role="group"
+          onmouseenter={(e) => onPlayerEnter(player.id, e)}
+          onmouseleave={onPlayerLeave}
         >
           <div class="card-inner">
             <div class="card-front">
@@ -104,6 +181,21 @@
         </div>
       {/each}
     </div>
+
+    {#if hoveringPlayerId !== null}
+      <div
+        class="emoji-picker"
+        style="left: {emojiPickerPos.x}px; top: {emojiPickerPos.y}px;"
+        role="group"
+        onmouseleave={onPickerLeave}
+      >
+        {#each THROW_EMOJIS as emoji}
+          <button class="flying-emoji-btn" onclick={() => throwEmoji(emoji, hoveringPlayerId)}>
+            {emoji}
+          </button>
+        {/each}
+      </div>
+    {/if}
 
     {#if game.phase === 'voting'}
       <div class="card-deck">

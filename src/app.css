@@ -470,6 +470,37 @@ input::placeholder {
   animation: marquee 8s ease-in-out 1;
 }
 
+.emoji-picker {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  gap: 3px;
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transform: translate(-50%, -100%);
+}
+
+.flying-emoji-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: transform 0.12s;
+}
+
+@media (hover: hover) {
+  .flying-emoji-btn:hover {
+    transform: scale(1.5);
+    background: rgba(255,255,255,0.1);
+  }
+}
+
 @media (max-width: 480px) {
   .poker-card {
     width: 50px;
