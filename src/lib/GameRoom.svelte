@@ -5,13 +5,22 @@
   let flipDelays = $state({});
   let marqueeActive = $state({});
 
-  const THROW_EMOJIS = ['🎯', '💩', '🔥', '❤️', '🎉', '⭐', '💀', '👑', '🌈', '🍕'];
+  const DEFAULT_EMOJIS = ['💩', '🔥', '❤️', '🎉', '⭐', '💀', '👑'];
 
   let hoveringPlayerId = $state(null);
   let emojiPickerPos = $state({ x: 0, y: 0 });
   let pickerAbove = $state(true);
   let hideTimeout = null;
   let animatedThrowIds = new Set();
+  let customEmoji = $state(null);
+  let showCustomPicker = $state(false);
+  let throwTargetId = $state(null);
+
+  let visibleEmojis = $derived.by(() => {
+    const list = [...DEFAULT_EMOJIS];
+    if (customEmoji) list.push(customEmoji);
+    return list;
+  });
 
   function onPlayerEnter(playerId, e) {
     if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
@@ -37,6 +46,26 @@
 
   function onPickerLeave() {
     hoveringPlayerId = null;
+  }
+
+  function onOpenCustomPicker() {
+    throwTargetId = hoveringPlayerId;
+    showCustomPicker = true;
+  }
+
+  function onCustomEmojiInput(e) {
+    const val = e.target.value;
+    const match = val.match(/\p{Extended_Pictographic}|\p{Emoji_Presentation}/gu);
+    if (match) {
+      const emoji = match[match.length - 1];
+      customEmoji = emoji;
+      showCustomPicker = false;
+      storeThrowEmoji(emoji, throwTargetId);
+    }
+  }
+
+  function onCustomEmojiKeydown(e) {
+    if (e.key === 'Escape') showCustomPicker = false;
   }
 
   function animateThrow(t) {
@@ -222,11 +251,22 @@
         onmouseenter={onPickerEnter}
         onmouseleave={onPickerLeave}
       >
-        {#each THROW_EMOJIS as emoji}
+        {#each visibleEmojis as emoji}
           <button class="flying-emoji-btn" onclick={() => { const target = hoveringPlayerId; hoveringPlayerId = null; storeThrowEmoji(emoji, target); }}>
             {emoji}
           </button>
         {/each}
+        <button class="add-emoji-btn" onclick={onOpenCustomPicker}>+</button>
+      </div>
+    {/if}
+
+    {#if showCustomPicker}
+      <div class="emoji-overlay" role="presentation" onclick={() => showCustomPicker = false} onkeydown={onCustomEmojiKeydown}>
+        <div class="emoji-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+          <p>Emoji auswählen</p>
+          <input type="text" inputmode="emoji" placeholder="Tippen oder einfügen…" autofocus oninput={onCustomEmojiInput} />
+          <button class="btn btn-small btn-secondary" onclick={() => showCustomPicker = false}>Abbrechen</button>
+        </div>
       </div>
     {/if}
 
