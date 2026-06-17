@@ -456,6 +456,16 @@ input::placeholder {
   100% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes marquee {
+  0%, 15% { transform: translateX(0); }
+  50% { transform: translateX(calc(100px - 100%)); }
+  85%, 100% { transform: translateX(0); }
+}
+
+.name.marquee {
+  animation: marquee 5s ease-in-out 1;
+}
+
 @media (max-width: 480px) {
   .poker-card {
     width: 50px;
