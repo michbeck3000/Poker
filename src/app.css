@@ -548,17 +548,38 @@ input::placeholder {
   text-align: center;
 }
 
-.emoji-dialog p {
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 600;
+.emoji-dialog-grid {
+  max-width: 420px;
+  padding: 16px;
+  gap: 8px;
 }
 
-.emoji-dialog input {
-  width: 100%;
-  text-align: center;
-  font-size: 1.5rem;
-  padding: 10px;
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.emoji-grid-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 28px;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: transform 0.1s, background 0.1s;
+}
+
+@media (hover: hover) {
+  .emoji-grid-btn:hover {
+    transform: scale(1.3);
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 @media (max-width: 480px) {

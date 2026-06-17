@@ -7,6 +7,20 @@
 
   const DEFAULT_EMOJIS = ['💩', '🔥', '❤️', '🎉', '⭐', '💀', '👑'];
 
+  const EMOJI_GRID = [
+    '🎉','🎊','🥳','🎈','🎁','🏆','🥇','👑','⭐','💯','🔥','💥',
+    '😂','🤣','😅','😆','😏','😎','🤩','😜','🤔','🧐','🙄','😬',
+    '😱','🤯','😭','😤','🤬','💀',
+    '😍','🥰','😘','❤️','💙','💜',
+    '👍','👏','🙌','🤝','✊','👊','💪','🫶',
+    '👎','🤞','🖕','🤦','🙈','🙉',
+    '🃏','🎲','🎰','💰','💎','🎯','🧠','💡',
+    '🚀','⚡','🏃','💨','🎢','🌟',
+    '✨','🌈','🔮','🎭','😈','🎵',
+    '🍿','☕','🎮','🐱','🐶','🦊','🐼',
+    '🫡','💅',
+  ];
+
   let hoveringPlayerId = $state(null);
   let emojiPickerPos = $state({ x: 0, y: 0 });
   let pickerAbove = $state(true);
@@ -53,19 +67,10 @@
     showCustomPicker = true;
   }
 
-  function onCustomEmojiInput(e) {
-    const val = e.target.value;
-    const match = val.match(/\p{Extended_Pictographic}|\p{Emoji_Presentation}/gu);
-    if (match) {
-      const emoji = match[match.length - 1];
-      customEmoji = emoji;
-      showCustomPicker = false;
-      storeThrowEmoji(emoji, throwTargetId);
-    }
-  }
-
-  function onCustomEmojiKeydown(e) {
-    if (e.key === 'Escape') showCustomPicker = false;
+  function onPickGridEmoji(emoji) {
+    customEmoji = emoji;
+    showCustomPicker = false;
+    storeThrowEmoji(emoji, throwTargetId);
   }
 
   function animateThrow(t) {
@@ -261,10 +266,13 @@
     {/if}
 
     {#if showCustomPicker}
-      <div class="emoji-overlay" role="presentation" onclick={() => showCustomPicker = false} onkeydown={onCustomEmojiKeydown}>
-        <div class="emoji-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-          <p>Emoji auswählen</p>
-          <input type="text" inputmode="emoji" placeholder="Tippen oder einfügen…" autofocus oninput={onCustomEmojiInput} />
+      <div class="emoji-overlay" role="presentation" onclick={() => showCustomPicker = false}>
+        <div class="emoji-dialog emoji-dialog-grid" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') showCustomPicker = false; }}>
+          <div class="emoji-grid">
+            {#each EMOJI_GRID as emoji}
+              <button class="emoji-grid-btn" onclick={() => onPickGridEmoji(emoji)}>{emoji}</button>
+            {/each}
+          </div>
           <button class="btn btn-small btn-secondary" onclick={() => showCustomPicker = false}>Abbrechen</button>
         </div>
       </div>
