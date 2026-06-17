@@ -81,7 +81,17 @@
       if (t < 1) {
         rAF(animate);
       } else {
-        el.remove();
+        rAF(() => {
+          el.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s';
+          el.style.transform = `translate(${endX}px, ${endY}px) scale(1.4)`;
+          setTimeout(() => {
+            el.style.transform = `translate(${endX}px, ${endY}px) scale(1)`;
+          }, 200);
+          setTimeout(() => {
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+          }, 5200);
+        });
       }
     }
     rAF(animate);
