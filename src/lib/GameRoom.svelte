@@ -1,5 +1,5 @@
 <script>
-  import { game, CARD_VALUES, selectCard, revealCards, newRound, leaveRoom } from './store.svelte.js';
+  import { game, CARD_VALUES, selectCard, revealCards, newRound, leaveRoom, throwEmoji as storeThrowEmoji } from './store.svelte.js';
 
   let copied = $state(false);
   let flipDelays = $state({});
@@ -11,6 +11,7 @@
   let emojiPickerPos = $state({ x: 0, y: 0 });
   let pickerAbove = $state(true);
   let hideTimeout = null;
+  let animatedThrowIds = new Set();
 
   function onPlayerEnter(playerId, e) {
     if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
@@ -38,9 +39,9 @@
     hoveringPlayerId = null;
   }
 
-  function throwEmoji(emoji, playerId) {
-    hoveringPlayerId = null;
-    const playerEl = document.querySelector(`[data-player-id="${playerId}"]`);
+  function animateThrow(t) {
+    const { emoji, targetPlayerId } = t;
+    const playerEl = document.querySelector(`[data-player-id="${targetPlayerId}"]`);
     if (!playerEl) return;
 
     const playerRect = playerEl.getBoundingClientRect();
@@ -129,6 +130,16 @@
     return () => clearInterval(interval);
   });
 
+  $effect(() => {
+    const throws = game.throws;
+    if (!throws || throws.length === 0) return;
+    for (const t of throws) {
+      if (animatedThrowIds.has(t.id)) continue;
+      animatedThrowIds.add(t.id);
+      animateThrow(t);
+    }
+  });
+
   function average() {
     const vals = Object.values(game.revealedCards).filter(v => typeof v === 'number');
     if (vals.length === 0) return '-';
@@ -200,7 +211,7 @@
         onmouseleave={onPickerLeave}
       >
         {#each THROW_EMOJIS as emoji}
-          <button class="flying-emoji-btn" onclick={() => throwEmoji(emoji, hoveringPlayerId)}>
+          <button class="flying-emoji-btn" onclick={() => { const target = hoveringPlayerId; hoveringPlayerId = null; storeThrowEmoji(emoji, target); }}>
             {emoji}
           </button>
         {/each}

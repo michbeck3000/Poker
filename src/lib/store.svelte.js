@@ -13,6 +13,7 @@ export const game = $state({
   players: [],
   error: '',
   revealedCards: {},
+  throws: [],
 });
 
 let channel = null;
@@ -35,6 +36,7 @@ function applyState(raw) {
   game.players = raw.players || [];
   game.phase = raw.phase || 'voting';
   game.revealedCards = raw.revealedCards || {};
+  game.throws = (raw.throws || []).filter(t => Date.now() - t.timestamp < 5000);
   game.connected = true;
   game.connecting = false;
   game.error = '';
@@ -80,6 +82,7 @@ async function writeState() {
     players: game.players,
     phase: game.phase,
     revealedCards: game.revealedCards,
+    throws: game.throws,
   };
   await supabase.from('rooms').upsert(
     { code: game.roomId, state },
@@ -220,6 +223,22 @@ export async function leaveRoom() {
   cleanup();
 }
 
+export async function throwEmoji(emoji, targetPlayerId) {
+  const state = await readState();
+  if (!state) return;
+  const t = {
+    id: 't' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+    emoji,
+    sourcePlayerId: game.myId,
+    targetPlayerId,
+    timestamp: Date.now(),
+  };
+  state.throws = [...(state.throws || []), t];
+  state.throws = state.throws.filter(x => Date.now() - x.timestamp < 5000);
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  applyState(state);
+}
+
 async function cleanup() {
   clearTimeout(connectTimer);
   if (pollTimer) clearInterval(pollTimer);
@@ -235,4 +254,5 @@ async function cleanup() {
   game.players = [];
   game.error = '';
   game.revealedCards = {};
+  game.throws = [];
 }
