@@ -172,7 +172,7 @@
       setTimeout(() => {
         game.players.forEach(p => { marqueeActive[p.id] = false; });
       }, 8000);
-    }, 20000);
+    }, 25000);
     return () => clearInterval(interval);
   });
 
