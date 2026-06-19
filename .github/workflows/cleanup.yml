@@ -1,6 +1,9 @@
 name: Cleanup old rooms
 
 on:
+  push:
+    paths:
+      - '.github/workflows/cleanup.yml'
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
