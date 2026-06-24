@@ -20,6 +20,7 @@ export const game = $state({
 let channel = null;
 let connectTimer = null;
 let pollTimer = null;
+let visibilityHandler = null;
 const CONNECT_TIMEOUT = 12000;
 const POLL_INTERVAL = 1500;
 
@@ -69,8 +70,19 @@ async function subscribeRoom(code) {
     { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
     (payload) => { applyState(payload.new?.state); }
   ).subscribe();
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(pollState, POLL_INTERVAL);
+  function handleVisibility() {
+    if (document.visibilityState === 'visible') {
+      pollState();
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollState, POLL_INTERVAL);
+    } else {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+  }
+  if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
+  visibilityHandler = handleVisibility;
+  document.addEventListener('visibilitychange', handleVisibility);
+  handleVisibility();
 }
 
 async function readState() {
@@ -260,6 +272,7 @@ export async function throwEmoji(emoji, targetPlayerId) {
 async function cleanup() {
   clearTimeout(connectTimer);
   if (pollTimer) clearInterval(pollTimer);
+  if (visibilityHandler) { document.removeEventListener('visibilitychange', visibilityHandler); visibilityHandler = null; }
   if (channel) {
     await supabase.removeChannel(channel);
     channel = null;
