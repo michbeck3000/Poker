@@ -6,6 +6,7 @@ export const game = $state({
   myName: localStorage.getItem('scrumPokerName') || '',
   myId: localStorage.getItem('scrumPokerId') || '',
   roomId: '',
+  myCardValue: null,
   selectedCard: null,
   phase: 'voting',
   connected: false,
@@ -42,6 +43,10 @@ function applyState(raw) {
   game.error = '';
   if (game.phase === 'voting' && wasRevealed) {
     game.selectedCard = null;
+    game.myCardValue = null;
+  }
+  if (game.phase === 'revealed' && game.myId && game.myCardValue != null && !game.revealedCards[game.myId]) {
+    submitMyCardValue();
   }
 }
 
@@ -112,7 +117,7 @@ export async function createRoom(name) {
   }, CONNECT_TIMEOUT);
   try {
     await subscribeRoom(code);
-    game.players = [{ id: game.myId, name, hasVoted: false, cardValue: null }];
+    game.players = [{ id: game.myId, name, hasVoted: false }];
     game.phase = 'voting';
     game.revealedCards = {};
     await writeState();
@@ -156,9 +161,8 @@ export async function joinRoom(name, code, existingId) {
     if (existing) {
       existing.name = name;
       existing.hasVoted = false;
-      existing.cardValue = null;
     } else {
-      state.players.push({ id: game.myId, name, hasVoted: false, cardValue: null });
+      state.players.push({ id: game.myId, name, hasVoted: false });
     }
     await supabase.from('rooms').update({ state }).eq('code', code);
     persistSession();
@@ -173,13 +177,14 @@ export async function joinRoom(name, code, existingId) {
 
 export async function selectCard(value) {
   game.selectedCard = value;
+  game.myCardValue = value;
   game.players = game.players.map(p =>
-    p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
+    p.id === game.myId ? { ...p, hasVoted: true } : p
   );
   const state = await readState();
   if (!state) return;
   state.players = state.players.map(p =>
-    p.id === game.myId ? { ...p, cardValue: value, hasVoted: true } : p
+    p.id === game.myId ? { ...p, hasVoted: true } : p
   );
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
 }
@@ -188,18 +193,31 @@ export async function revealCards() {
   const state = await readState();
   if (!state) return;
   state.phase = 'revealed';
-  state.revealedCards = Object.fromEntries(
-    state.players.map(p => [p.id, p.cardValue])
-  );
+  state.revealedCards = state.revealedCards || {};
+  state.revealedCards[game.myId] = game.myCardValue;
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
   applyState(state);
+}
+
+async function submitMyCardValue() {
+  const state = await readState();
+  if (!state || state.revealedCards?.[game.myId]) return;
+  state.revealedCards = state.revealedCards || {};
+  state.revealedCards[game.myId] = game.myCardValue;
+  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  setTimeout(async () => {
+    const check = await readState();
+    if (check && !check.revealedCards?.[game.myId]) {
+      submitMyCardValue();
+    }
+  }, 1500);
 }
 
 export async function newRound() {
   const state = await readState();
   if (!state) return;
   state.phase = 'voting';
-  state.players = state.players.map(p => ({ ...p, cardValue: null, hasVoted: false }));
+  state.players = state.players.map(p => ({ ...p, hasVoted: false }));
   state.revealedCards = {};
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
   applyState(state);
@@ -248,6 +266,7 @@ async function cleanup() {
   }
   game.roomId = '';
   game.selectedCard = null;
+  game.myCardValue = null;
   game.phase = 'voting';
   game.connected = false;
   game.connecting = false;
