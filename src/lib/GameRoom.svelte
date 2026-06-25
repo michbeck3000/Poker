@@ -95,8 +95,10 @@
     const ctrlY = Math.min(startY, endY) - 150 - Math.random() * 100;
 
     const el = document.createElement('div');
-    el.textContent = emoji;
-    el.style.cssText = 'position:fixed;left:0;top:0;font-size:36px;pointer-events:none;z-index:9999;line-height:1;';
+    const sender = game.players.find(p => p.id === t.sourcePlayerId);
+    const initial = sender?.name?.charAt(0)?.toUpperCase() || '';
+    el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;line-height:1.1">${emoji}<span style="font-size:11px;color:#94a3b8;font-weight:600">${initial}</span></div>`;
+    el.style.cssText = 'position:fixed;left:0;top:0;font-size:36px;pointer-events:none;z-index:9999;';
     document.body.appendChild(el);
 
     const duration = 700 + Math.random() * 400;
