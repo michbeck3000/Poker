@@ -1,5 +1,5 @@
 <script>
-  import { game, joinRoom, leaveRoom } from './lib/store.svelte.js';
+  import { game, joinRoom, sendLeaveBeacon } from './lib/store.svelte.js';
   import Lobby from './lib/Lobby.svelte';
   import GameRoom from './lib/GameRoom.svelte';
 
@@ -26,12 +26,11 @@
 
   $effect(() => {
     const handler = () => {
-      if (game.roomId && game.myId) {
-        leaveRoom();
-      }
+      sendLeaveBeacon();
+      localStorage.removeItem('scrumPokerRoom');
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    window.addEventListener('pagehide', handler);
+    return () => window.removeEventListener('pagehide', handler);
   });
 </script>
 

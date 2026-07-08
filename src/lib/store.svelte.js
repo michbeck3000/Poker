@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 
 export const CARD_VALUES = [1, 2, 3, 5, 8, 13, 20, 40, 100, '?', '☕'];
 
@@ -265,34 +265,29 @@ export async function newRound() {
 export async function leaveRoom() {
   if (game.roomId && game.myId) {
     try {
-      const state = await readState();
-      if (state) {
-        state.players = state.players.filter(p => p.id !== game.myId);
-        if (state.players.length > 0) {
-          await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-        } else {
-          await supabase.from('rooms').delete().eq('code', game.roomId);
-        }
-      }
+      await supabase.rpc('remove_player', { room_code: game.roomId, player_id: game.myId });
     } catch (e) {
-      console.warn('👋 Verlassen fehlgeschlagen – Versuche readState erneut...', e.message);
-      try {
-        const state = await readState();
-        if (state) {
-          state.players = state.players.filter(p => p.id !== game.myId);
-          if (state.players.length > 0) {
-            await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-          } else {
-            await supabase.from('rooms').delete().eq('code', game.roomId);
-          }
-        }
-      } catch (e) {
-        console.warn('👋 Auch zweiter Versuch fehlgeschlagen – du bist nur lokal entfernt:', e.message);
-      }
+      console.warn('👋 Verlassen fehlgeschlagen:', e.message);
     }
   }
   localStorage.removeItem('scrumPokerRoom');
   cleanup();
+}
+
+export function sendLeaveBeacon() {
+  if (!game.roomId || !game.myId) return;
+  try {
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/remove_player`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ room_code: game.roomId, player_id: game.myId }),
+      keepalive: true,
+    });
+  } catch (_) {}
 }
 
 export async function throwEmoji(emoji, targetPlayerId) {

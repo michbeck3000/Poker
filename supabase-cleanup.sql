@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 
 -- 3. Allow anonymous access (anon key)
+DROP POLICY IF EXISTS anon_all ON rooms;
 CREATE POLICY anon_all ON rooms
   FOR ALL
   TO anon
@@ -34,7 +35,8 @@ CREATE TRIGGER rooms_updated_at
   EXECUTE FUNCTION update_updated_at();
 
 -- 5. Stored procedure to delete rooms older than N days
-CREATE OR REPLACE FUNCTION delete_old_rooms(days INT)
+DROP FUNCTION IF EXISTS delete_old_rooms(INT);
+CREATE FUNCTION delete_old_rooms(days INT)
 RETURNS INT
 LANGUAGE plpgsql
 AS $$
@@ -48,5 +50,33 @@ BEGIN
 END;
 $$;
 
--- 6. ☝️ Don't forget: Enable Realtime for the "rooms" table
+-- 6. Atomarer Spieler-Entferner (für leave + sendBeacon bei Tab-Schließen)
+DROP FUNCTION IF EXISTS remove_player(TEXT, TEXT);
+CREATE FUNCTION remove_player(room_code TEXT, player_id TEXT)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  cur JSONB;
+  upd JSONB;
+  cnt INT;
+BEGIN
+  SELECT state INTO cur FROM rooms WHERE code = room_code;
+  IF cur IS NULL THEN RETURN; END IF;
+
+  upd := jsonb_set(cur, '{players}', COALESCE(
+    (SELECT jsonb_agg(p) FROM jsonb_array_elements(cur->'players') p WHERE p->>'id' != player_id),
+    '[]'::jsonb
+  ));
+
+  cnt := jsonb_array_length(upd->'players');
+  IF cnt = 0 THEN
+    DELETE FROM rooms WHERE code = room_code;
+  ELSE
+    UPDATE rooms SET state = upd WHERE code = room_code;
+  END IF;
+END;
+$$;
+
+-- 7. ☝️ Don't forget: Enable Realtime for the "rooms" table
 --    Go to Dashboard → Realtime → toggle "rooms" table ON
