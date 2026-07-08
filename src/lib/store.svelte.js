@@ -71,7 +71,15 @@ async function subscribeRoom(code) {
   channel.on('postgres_changes',
     { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
     (payload) => { applyState(payload.new?.state); }
-  ).subscribe();
+  ).subscribe((status, err) => {
+    if (status === 'CHANNEL_ERROR') {
+      console.warn('📡 Realtime-Kanal nicht verfügbar – Polling-Fallback aktiv:', err?.message);
+    } else if (status === 'TIMED_OUT') {
+      console.warn('📡 Realtime-Timeout – Polling-Fallback aktiv');
+    } else if (status === 'SUBSCRIBED') {
+      console.log('📡 Realtime verbunden');
+    }
+  });
   function handleVisibility() {
     if (document.visibilityState === 'visible') {
       pollState();
