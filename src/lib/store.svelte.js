@@ -73,9 +73,11 @@ async function subscribeRoom(code) {
     (payload) => { applyState(payload.new?.state); }
   ).subscribe((status, err) => {
     if (status === 'CHANNEL_ERROR') {
-      console.warn('📡 Realtime-Kanal nicht verfügbar – Polling-Fallback aktiv:', err?.message);
+      console.warn('📡 Realtime nicht verfügbar – nur Polling aktiv:', err?.message);
+      if (channel) { supabase.removeChannel(channel); channel = null; }
     } else if (status === 'TIMED_OUT') {
-      console.warn('📡 Realtime-Timeout – Polling-Fallback aktiv');
+      console.warn('📡 Realtime-Timeout – nur Polling aktiv');
+      if (channel) { supabase.removeChannel(channel); channel = null; }
     } else if (status === 'SUBSCRIBED') {
       console.log('📡 Realtime verbunden');
     }
