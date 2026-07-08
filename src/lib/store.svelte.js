@@ -3,7 +3,7 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 export const CARD_VALUES = [1, 2, 3, 5, 8, 13, 20, 40, 100, '?', '☕'];
 
 export const game = $state({
-  myName: localStorage.getItem('scrumPokerName') || '',
+  myName: '',
   myId: localStorage.getItem('scrumPokerId') || '',
   roomId: '',
   myCardValue: null,
@@ -121,7 +121,6 @@ async function writeState() {
 
 function persistSession() {
   localStorage.setItem('scrumPokerId', game.myId);
-  localStorage.setItem('scrumPokerName', game.myName);
   if (game.roomId) localStorage.setItem('scrumPokerRoom', game.roomId);
 }
 

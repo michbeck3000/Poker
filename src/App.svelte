@@ -19,12 +19,6 @@
   });
 
   $effect(() => {
-    if (game.myName && game.connected) {
-      localStorage.setItem('scrumPokerName', game.myName);
-    }
-  });
-
-  $effect(() => {
     const handler = () => {
       sendLeaveBeacon();
       localStorage.removeItem('scrumPokerRoom');
