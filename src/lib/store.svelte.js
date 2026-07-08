@@ -60,7 +60,9 @@ async function pollState() {
       .eq('code', game.roomId)
       .single();
     if (data?.state) applyState(data.state);
-  } catch (_) {}
+    } catch (e) {
+    console.warn('📡 Poll fehlgeschlagen – Netzwerk/Timeout:', e.message);
+  }
 }
 
 async function subscribeRoom(code) {
@@ -142,6 +144,7 @@ export async function createRoom(name) {
     });
   } catch (err) {
     clearTimeout(connectTimer);
+    console.warn('🆕 Raum erstellen fehlgeschlagen:', err.message);
     game.error = `Fehler: ${err.message}`;
     game.connecting = false;
   }
@@ -182,6 +185,7 @@ export async function joinRoom(name, code, existingId) {
     clearTimeout(connectTimer);
   } catch (err) {
     clearTimeout(connectTimer);
+    console.warn('🚪 Raum beitreten fehlgeschlagen:', err.message);
     game.error = `Fehler: ${err.message}`;
     game.connecting = false;
   }
@@ -193,22 +197,30 @@ export async function selectCard(value) {
   game.players = game.players.map(p =>
     p.id === game.myId ? { ...p, hasVoted: true } : p
   );
-  const state = await readState();
-  if (!state) return;
-  state.players = state.players.map(p =>
-    p.id === game.myId ? { ...p, hasVoted: true } : p
-  );
-  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  try {
+    const state = await readState();
+    if (!state) return;
+    state.players = state.players.map(p =>
+      p.id === game.myId ? { ...p, hasVoted: true } : p
+    );
+    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  } catch (e) {
+    console.warn('🃏 Kartenauswahl fehlgeschlagen:', e.message);
+  }
 }
 
 export async function revealCards() {
-  const state = await readState();
-  if (!state) return;
-  state.phase = 'revealed';
-  state.revealedCards = state.revealedCards || {};
-  state.revealedCards[game.myId] = game.myCardValue;
-  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-  applyState(state);
+  try {
+    const state = await readState();
+    if (!state) return;
+    state.phase = 'revealed';
+    state.revealedCards = state.revealedCards || {};
+    state.revealedCards[game.myId] = game.myCardValue;
+    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+    applyState(state);
+  } catch (e) {
+    console.warn('🔓 Aufdecken fehlgeschlagen:', e.message);
+  }
 }
 
 async function submitMyCardValue() {
@@ -217,6 +229,7 @@ async function submitMyCardValue() {
   state.revealedCards = state.revealedCards || {};
   state.revealedCards[game.myId] = game.myCardValue;
   await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+  console.warn('🔄 Eigener Wert nicht in revealedCards – neuer Versuch in 1,5s...');
   setTimeout(async () => {
     const check = await readState();
     if (check && !check.revealedCards?.[game.myId]) {
@@ -226,13 +239,17 @@ async function submitMyCardValue() {
 }
 
 export async function newRound() {
-  const state = await readState();
-  if (!state) return;
-  state.phase = 'voting';
-  state.players = state.players.map(p => ({ ...p, hasVoted: false }));
-  state.revealedCards = {};
-  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-  applyState(state);
+  try {
+    const state = await readState();
+    if (!state) return;
+    state.phase = 'voting';
+    state.players = state.players.map(p => ({ ...p, hasVoted: false }));
+    state.revealedCards = {};
+    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+    applyState(state);
+  } catch (e) {
+    console.warn('🆕 Neue Runde fehlgeschlagen:', e.message);
+  }
 }
 
 export async function leaveRoom() {
@@ -247,26 +264,45 @@ export async function leaveRoom() {
           await supabase.from('rooms').delete().eq('code', game.roomId);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('👋 Verlassen fehlgeschlagen – Versuche readState erneut...', e.message);
+      try {
+        const state = await readState();
+        if (state) {
+          state.players = state.players.filter(p => p.id !== game.myId);
+          if (state.players.length > 0) {
+            await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+          } else {
+            await supabase.from('rooms').delete().eq('code', game.roomId);
+          }
+        }
+      } catch (e) {
+        console.warn('👋 Auch zweiter Versuch fehlgeschlagen – du bist nur lokal entfernt:', e.message);
+      }
+    }
   }
   localStorage.removeItem('scrumPokerRoom');
   cleanup();
 }
 
 export async function throwEmoji(emoji, targetPlayerId) {
-  const state = await readState();
-  if (!state) return;
-  const t = {
-    id: 't' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
-    emoji,
-    sourcePlayerId: game.myId,
-    targetPlayerId,
-    timestamp: Date.now(),
-  };
-  state.throws = [...(state.throws || []), t];
-  state.throws = state.throws.filter(x => Date.now() - x.timestamp < 5000);
-  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-  applyState(state);
+  try {
+    const state = await readState();
+    if (!state) return;
+    const t = {
+      id: 't' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+      emoji,
+      sourcePlayerId: game.myId,
+      targetPlayerId,
+      timestamp: Date.now(),
+    };
+    state.throws = [...(state.throws || []), t];
+    state.throws = state.throws.filter(x => Date.now() - x.timestamp < 5000);
+    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+    applyState(state);
+  } catch (e) {
+    console.warn('💩 Emoji-Wurf fehlgeschlagen:', e.message);
+  }
 }
 
 async function cleanup() {

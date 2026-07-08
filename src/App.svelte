@@ -1,5 +1,5 @@
 <script>
-  import { game, joinRoom } from './lib/store.svelte.js';
+  import { game, joinRoom, leaveRoom } from './lib/store.svelte.js';
   import Lobby from './lib/Lobby.svelte';
   import GameRoom from './lib/GameRoom.svelte';
 
@@ -22,6 +22,16 @@
     if (game.myName && game.connected) {
       localStorage.setItem('scrumPokerName', game.myName);
     }
+  });
+
+  $effect(() => {
+    const handler = () => {
+      if (game.roomId && game.myId) {
+        leaveRoom();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
   });
 </script>
 
