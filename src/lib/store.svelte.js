@@ -58,9 +58,9 @@ async function pollState() {
       .from('rooms')
       .select('state')
       .eq('code', game.roomId)
-      .single();
-    if (data?.state) applyState(data.state);
-    } catch (e) {
+      .limit(1);
+    if (data?.[0]?.state) applyState(data[0].state);
+  } catch (e) {
     console.warn('📡 Poll fehlgeschlagen – Netzwerk/Timeout:', e.message);
   }
 }
