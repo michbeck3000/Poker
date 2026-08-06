@@ -1,4 +1,4 @@
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
+import { supabase } from './supabase.js';
 
 export const CARD_VALUES = [1, 2, 3, 5, 8, 13, 20, 40, 100, '?', '☕'];
 
@@ -20,9 +20,16 @@ export const game = $state({
 let channel = null;
 let connectTimer = null;
 let pollTimer = null;
+let heartbeatTimer = null;
 let visibilityHandler = null;
+let revealRetries = 0;
+let revealInFlight = false;
+
 const CONNECT_TIMEOUT = 12000;
 const POLL_INTERVAL = 1500;
+const HEARTBEAT_INTERVAL = 15000;
+const STALE_THRESHOLD = 120;
+const REVEAL_RETRY_MAX = 3;
 
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
@@ -30,6 +37,15 @@ function generateId() {
 
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function jsonEncode(v) {
+  if (v === null || v === undefined) return 'null';
+  return JSON.stringify(v);
+}
+
+function nowSec() {
+  return Math.floor(Date.now() / 1000);
 }
 
 function applyState(raw) {
@@ -45,6 +61,7 @@ function applyState(raw) {
   if (game.phase === 'voting' && wasRevealed) {
     game.selectedCard = null;
     game.myCardValue = null;
+    revealRetries = 0;
   }
   if (game.phase === 'revealed' && game.myId && game.myCardValue != null && !game.revealedCards[game.myId]) {
     submitMyCardValue();
@@ -63,6 +80,19 @@ async function pollState() {
   } catch (e) {
     console.warn('📡 Poll fehlgeschlagen – Netzwerk/Timeout:', e.message);
   }
+}
+
+function startHeartbeat() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(async () => {
+    if (!game.roomId) return;
+    try {
+      await supabase.rpc('touch_player', { room_code: game.roomId, player_id: game.myId });
+    } catch (e) {}
+    try {
+      await supabase.rpc('reap_disconnected', { room_code: game.roomId, threshold_sec: STALE_THRESHOLD });
+    } catch (e) {}
+  }, HEARTBEAT_INTERVAL);
 }
 
 async function subscribeRoom(code) {
@@ -106,19 +136,6 @@ async function readState() {
   return data?.[0]?.state ?? null;
 }
 
-async function writeState() {
-  const state = {
-    players: game.players,
-    phase: game.phase,
-    revealedCards: game.revealedCards,
-    throws: game.throws,
-  };
-  await supabase.from('rooms').upsert(
-    { code: game.roomId, state },
-    { onConflict: 'code' }
-  );
-}
-
 function persistSession() {
   localStorage.setItem('scrumPokerId', game.myId);
   if (game.roomId) localStorage.setItem('scrumPokerRoom', game.roomId);
@@ -140,17 +157,20 @@ export async function createRoom(name) {
   }, CONNECT_TIMEOUT);
   try {
     await subscribeRoom(code);
-    game.players = [{ id: game.myId, name, hasVoted: false }];
-    game.phase = 'voting';
-    game.revealedCards = {};
-    await writeState();
-    clearTimeout(connectTimer);
-    persistSession();
-    applyState({
-      players: game.players,
+    const initial = {
+      players: [{ id: game.myId, name, hasVoted: false, lastSeen: nowSec() }],
       phase: 'voting',
       revealedCards: {},
-    });
+      throws: [],
+    };
+    await supabase.from('rooms').upsert(
+      { code, state: initial },
+      { onConflict: 'code' }
+    );
+    clearTimeout(connectTimer);
+    persistSession();
+    startHeartbeat();
+    applyState(initial);
   } catch (err) {
     clearTimeout(connectTimer);
     console.warn('🆕 Raum erstellen fehlgeschlagen:', err.message);
@@ -174,23 +194,24 @@ export async function joinRoom(name, code, existingId) {
   }, CONNECT_TIMEOUT);
   try {
     await subscribeRoom(code);
-    const state = await readState();
-    if (!state) {
+    const exists = await readState();
+    if (!exists) {
       game.error = 'Raum nicht gefunden. Code prüfen.';
       game.connecting = false;
       clearTimeout(connectTimer);
       return;
     }
-    const existing = state.players.find(p => p.id === game.myId);
-    if (existing) {
-      existing.name = name;
-      existing.hasVoted = false;
-    } else {
-      state.players.push({ id: game.myId, name, hasVoted: false });
-    }
-    await supabase.from('rooms').update({ state }).eq('code', code);
+    await supabase.rpc('join_room', { room_code: code, player_id: game.myId, player_name: name });
     persistSession();
-    applyState(state);
+    startHeartbeat();
+    const fresh = await readState();
+    if (!fresh) {
+      game.error = 'Raum nicht gefunden. Code prüfen.';
+      game.connecting = false;
+      clearTimeout(connectTimer);
+      return;
+    }
+    applyState(fresh);
     clearTimeout(connectTimer);
   } catch (err) {
     clearTimeout(connectTimer);
@@ -207,12 +228,7 @@ export async function selectCard(value) {
     p.id === game.myId ? { ...p, hasVoted: true } : p
   );
   try {
-    const state = await readState();
-    if (!state) return;
-    state.players = state.players.map(p =>
-      p.id === game.myId ? { ...p, hasVoted: true } : p
-    );
-    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
+    await supabase.rpc('set_player_voted', { room_code: game.roomId, player_id: game.myId });
   } catch (e) {
     console.warn('🃏 Kartenauswahl fehlgeschlagen:', e.message);
   }
@@ -220,28 +236,35 @@ export async function selectCard(value) {
 
 export async function revealCards() {
   try {
-    const state = await readState();
-    if (!state) return;
-    state.phase = 'revealed';
-    state.revealedCards = state.revealedCards || {};
-    state.revealedCards[game.myId] = game.myCardValue;
-    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-    applyState(state);
+    await supabase.rpc('reveal_card', {
+      room_code: game.roomId,
+      player_id: game.myId,
+      value: jsonEncode(game.myCardValue),
+    });
   } catch (e) {
     console.warn('🔓 Aufdecken fehlgeschlagen:', e.message);
   }
 }
 
 async function submitMyCardValue() {
-  const state = await readState();
-  if (!state || state.revealedCards?.[game.myId]) return;
-  state.revealedCards = state.revealedCards || {};
-  state.revealedCards[game.myId] = game.myCardValue;
-  await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-  console.warn('🔄 Eigener Wert nicht in revealedCards – neuer Versuch in 1,5s...');
+  if (revealInFlight || revealRetries >= REVEAL_RETRY_MAX) return;
+  revealInFlight = true;
+  try {
+    await supabase.rpc('reveal_card', {
+      room_code: game.roomId,
+      player_id: game.myId,
+      value: jsonEncode(game.myCardValue),
+    });
+  } catch (e) {
+    revealRetries++;
+    console.warn('🔄 Eigener Wert nicht übermittelt – neuer Versuch:', e.message);
+  } finally {
+    revealInFlight = false;
+  }
   setTimeout(async () => {
     const check = await readState();
-    if (check && !check.revealedCards?.[game.myId]) {
+    if (check && !check.revealedCards?.[game.myId] && revealRetries < REVEAL_RETRY_MAX) {
+      revealRetries++;
       submitMyCardValue();
     }
   }, 1500);
@@ -249,13 +272,8 @@ async function submitMyCardValue() {
 
 export async function newRound() {
   try {
-    const state = await readState();
-    if (!state) return;
-    state.phase = 'voting';
-    state.players = state.players.map(p => ({ ...p, hasVoted: false }));
-    state.revealedCards = {};
-    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-    applyState(state);
+    await supabase.rpc('new_round', { room_code: game.roomId });
+    revealRetries = 0;
   } catch (e) {
     console.warn('🆕 Neue Runde fehlgeschlagen:', e.message);
   }
@@ -273,26 +291,8 @@ export async function leaveRoom() {
   cleanup();
 }
 
-export function sendLeaveBeacon() {
-  if (!game.roomId || !game.myId) return;
-  try {
-    fetch(`${SUPABASE_URL}/rest/v1/rpc/remove_player`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({ room_code: game.roomId, player_id: game.myId }),
-      keepalive: true,
-    });
-  } catch (_) {}
-}
-
 export async function throwEmoji(emoji, targetPlayerId) {
   try {
-    const state = await readState();
-    if (!state) return;
     const t = {
       id: 't' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       emoji,
@@ -300,21 +300,19 @@ export async function throwEmoji(emoji, targetPlayerId) {
       targetPlayerId,
       timestamp: Date.now(),
     };
-    state.throws = [...(state.throws || []), t];
-    state.throws = state.throws.filter(x => Date.now() - x.timestamp < 5000);
-    await supabase.from('rooms').update({ state }).eq('code', game.roomId);
-    applyState(state);
+    await supabase.rpc('send_throw', { room_code: game.roomId, throw_data: t });
   } catch (e) {
     console.warn('💩 Emoji-Wurf fehlgeschlagen:', e.message);
   }
 }
 
-async function cleanup() {
+function cleanup() {
   clearTimeout(connectTimer);
   if (pollTimer) clearInterval(pollTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (visibilityHandler) { document.removeEventListener('visibilitychange', visibilityHandler); visibilityHandler = null; }
   if (channel) {
-    await supabase.removeChannel(channel);
+    supabase.removeChannel(channel);
     channel = null;
   }
   game.roomId = '';
@@ -327,4 +325,6 @@ async function cleanup() {
   game.error = '';
   game.revealedCards = {};
   game.throws = [];
+  revealRetries = 0;
+  revealInFlight = false;
 }
