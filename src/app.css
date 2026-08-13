@@ -460,17 +460,6 @@ input::placeholder {
   100% { transform: scale(1); opacity: 1; }
 }
 
-@keyframes marquee {
-  0%, 12% { transform: translateX(0); }
-  35% { transform: translateX(var(--marquee-dist, -50px)); }
-  65% { transform: translateX(var(--marquee-dist, -50px)); }
-  88%, 100% { transform: translateX(0); }
-}
-
-.name.marquee {
-  animation: marquee 8s ease-in-out 1;
-}
-
 .emoji-picker {
   position: fixed;
   z-index: 500;

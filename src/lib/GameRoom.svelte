@@ -3,7 +3,6 @@
 
   let copied = $state(false);
   let flipDelays = $state({});
-  let marqueeActive = $state({});
 
   const DEFAULT_EMOJIS = ['💩', '🔥', '❤️', '🎉', '⭐', '💀', '👑'];
 
@@ -158,27 +157,42 @@
     }
   });
 
+  const marqueeAnims = new Map();
+
   $effect(() => {
-    const measure = () => {
-      const wraps = document.querySelectorAll('.name-wrap');
+    const run = () => {
+      const wraps = document.querySelectorAll('.card-front .name-wrap');
       wraps.forEach((wrap) => {
         const nameEl = wrap.querySelector('.name');
         const pid = wrap.closest('.player')?.dataset.playerId;
         if (!nameEl || !pid) return;
-        const wrapWidth = wrap.clientWidth;
-        const nameWidth = nameEl.getBoundingClientRect().width;
-        wrap.style.setProperty('--marquee-dist', ((wrapWidth - nameWidth) / 2) + 'px');
-        marqueeActive[pid] = nameWidth > wrapWidth + 1;
+        const wrapRect = wrap.getBoundingClientRect();
+        const nameRect = nameEl.getBoundingClientRect();
+        const truncated = nameRect.width > wrapRect.width + 1;
+        const prev = marqueeAnims.get(pid);
+        if (!truncated) {
+          if (prev) { prev.cancel(); marqueeAnims.delete(pid); }
+          return;
+        }
+        if (prev) prev.cancel();
+        const dist = wrapRect.right - nameRect.right;
+        if (dist >= 0) { marqueeAnims.delete(pid); return; }
+        const anim = nameEl.animate([
+          { transform: 'translateX(0)' },
+          { transform: `translateX(${dist}px)`, offset: 0.35 },
+          { transform: `translateX(${dist}px)`, offset: 0.65 },
+          { transform: 'translateX(0)' },
+        ], { duration: 8000, easing: 'ease-in-out' });
+        marqueeAnims.set(pid, anim);
       });
     };
-    measure();
-    const interval = setInterval(() => {
-      measure();
-      setTimeout(() => {
-        game.players.forEach(p => { marqueeActive[p.id] = false; });
-      }, 8000);
-    }, 25000);
-    return () => clearInterval(interval);
+    run();
+    const interval = setInterval(run, 25000);
+    return () => {
+      clearInterval(interval);
+      marqueeAnims.forEach(a => a.cancel());
+      marqueeAnims.clear();
+    };
   });
 
   $effect(() => {
@@ -235,7 +249,7 @@
           <div class="card-inner">
             <div class="card-front">
               <span class="name-wrap">
-                <span class="name" class:marquee={marqueeActive[player.id]}>{player.name}</span>
+                <span class="name">{player.name}</span>
               </span>
               <span class="status" class:ready={player.hasVoted}>
                 {player.hasVoted ? '✓ Bereit' : 'Wählt...'}
@@ -244,7 +258,7 @@
             <div class="card-back">
               <span class="revealed-value">{game.revealedCards[player.id] ?? '-'}</span>
               <span class="name-wrap">
-                <span class="name" class:marquee={marqueeActive[player.id]}>{player.name}</span>
+                <span class="name">{player.name}</span>
               </span>
             </div>
           </div>
