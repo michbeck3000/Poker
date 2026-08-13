@@ -158,18 +158,22 @@
     }
   });
 
-  function isTruncated(el) {
-    return el && el.scrollWidth > el.clientWidth;
-  }
-
   $effect(() => {
-    const interval = setInterval(() => {
-      const wraps = document.querySelectorAll('.card-front .name-wrap');
-      wraps.forEach((wrap, i) => {
-        if (game.players[i]) {
-          marqueeActive[game.players[i].id] = isTruncated(wrap);
-        }
+    const measure = () => {
+      const wraps = document.querySelectorAll('.name-wrap');
+      wraps.forEach((wrap) => {
+        const nameEl = wrap.querySelector('.name');
+        const pid = wrap.closest('.player')?.dataset.playerId;
+        if (!nameEl || !pid) return;
+        const wrapWidth = wrap.clientWidth;
+        const nameWidth = nameEl.getBoundingClientRect().width;
+        wrap.style.setProperty('--marquee-dist', ((wrapWidth - nameWidth) / 2) + 'px');
+        marqueeActive[pid] = nameWidth > wrapWidth + 1;
       });
+    };
+    measure();
+    const interval = setInterval(() => {
+      measure();
       setTimeout(() => {
         game.players.forEach(p => { marqueeActive[p.id] = false; });
       }, 8000);
