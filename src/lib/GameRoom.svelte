@@ -205,12 +205,14 @@
   $effect(() => {
     const throws = game.throws;
     if (!throws || throws.length === 0) return;
-    const perTarget = new Map();
-    for (const t of throws) {
+    for (let i = 0; i < throws.length; i++) {
+      const t = throws[i];
       if (animatedThrowIds.has(t.id)) continue;
       animatedThrowIds.add(t.id);
-      const idx = perTarget.get(t.targetPlayerId) ?? 0;
-      perTarget.set(t.targetPlayerId, idx + 1);
+      let idx = 0;
+      for (let j = 0; j < i; j++) {
+        if (throws[j].targetPlayerId === t.targetPlayerId) idx++;
+      }
       animateThrow(t, idx % LAND_SLOTS.length);
     }
   });
