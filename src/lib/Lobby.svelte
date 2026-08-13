@@ -25,7 +25,7 @@
 </script>
 
 <div class="lobby">
-  <div class="logo">🂡</div>
+  <img class="logo" src="{import.meta.env.BASE_URL}icon-192.png" alt="Scrum Poker Logo" width="96" height="96" />
   <h1>Scrum Poker</h1>
   <p class="subtitle">Planning Poker für dein Team</p>
 
