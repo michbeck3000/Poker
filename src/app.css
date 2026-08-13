@@ -67,10 +67,8 @@ main {
 }
 
 .logo {
-  width: 96px;
-  height: 96px;
-  border-radius: 20px;
-  object-fit: cover;
+  font-size: 64px;
+  line-height: 1;
 }
 
 .lobby h1 {
@@ -632,9 +630,7 @@ input::placeholder {
   }
 
   .logo {
-    width: 72px;
-    height: 72px;
-    border-radius: 16px;
+    font-size: 44px;
   }
 
   .subtitle {
