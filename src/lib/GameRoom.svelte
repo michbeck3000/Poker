@@ -71,14 +71,21 @@
     storeThrowEmoji(emoji, throwTargetId);
   }
 
-  function animateThrow(t) {
+  const LAND_SLOTS = [
+    [-0.7, -0.6], [0, -0.75], [0.7, -0.6],
+    [-0.8, 0.05], [0.8, 0.05],
+    [-0.7, 0.7], [0, 0.8], [0.7, 0.7],
+  ];
+
+  function animateThrow(t, slot = 0) {
     const { emoji, targetPlayerId } = t;
     const playerEl = document.querySelector(`[data-player-id="${targetPlayerId}"]`);
     if (!playerEl) return;
 
     const playerRect = playerEl.getBoundingClientRect();
-    const endX = playerRect.left + playerRect.width / 2;
-    const endY = playerRect.top + playerRect.height / 2;
+    const [fx, fy] = LAND_SLOTS[slot % LAND_SLOTS.length];
+    const endX = playerRect.left + playerRect.width / 2 + fx * (playerRect.width / 2);
+    const endY = playerRect.top + playerRect.height / 2 + fy * (playerRect.height / 2);
 
     const side = Math.floor(Math.random() * 4);
     let startX, startY;
@@ -198,10 +205,13 @@
   $effect(() => {
     const throws = game.throws;
     if (!throws || throws.length === 0) return;
+    const perTarget = new Map();
     for (const t of throws) {
       if (animatedThrowIds.has(t.id)) continue;
       animatedThrowIds.add(t.id);
-      animateThrow(t);
+      const idx = perTarget.get(t.targetPlayerId) ?? 0;
+      perTarget.set(t.targetPlayerId, idx + 1);
+      animateThrow(t, idx % LAND_SLOTS.length);
     }
   });
 
