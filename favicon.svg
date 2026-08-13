@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="white"/><rect x="1" y="1" width="98" height="98" rx="21" fill="none" stroke="#d1d5db" stroke-width="2"/><text x="50" y="50" dominant-baseline="central" text-anchor="middle" font-size="70">🂡</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <path id="spade" vector-effect="non-scaling-stroke" d="M0 -22 C7 -12 16 -9 26 -3 C34 3 30 12 23 10 C18 9 17 15 15 23 L-15 23 C-17 15 -18 9 -23 10 C-30 12 -34 3 -26 -3 C-16 -9 -7 -12 0 -22 Z"/>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="#0f172a"/>
+  <rect x="1" y="1" width="98" height="98" rx="21" fill="none" stroke="#1e293b" stroke-width="1.5"/>
+  <rect x="14" y="14" width="72" height="72" rx="8" fill="#1e293b" stroke="#e2e8f0" stroke-width="2"/>
+  <use href="#spade" transform="translate(26 25) scale(0.4)" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
+  <use href="#spade" transform="translate(74 75) scale(0.4) rotate(180 74 75)" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
+  <use href="#spade" transform="translate(50 50) scale(1.05)" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
+</svg>
