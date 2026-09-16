@@ -36,4 +36,4 @@ npm run build
 
 ## License
 
-Privat.
+MIT License – siehe [LICENSE](LICENSE).
