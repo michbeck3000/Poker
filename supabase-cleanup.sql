@@ -201,6 +201,7 @@ AS $$
 DECLARE
   cur JSONB;
   rc JSONB;
+  revealer_name TEXT;
 BEGIN
   SELECT state INTO cur FROM rooms WHERE code = room_code FOR UPDATE;
   IF cur IS NULL THEN RETURN; END IF;
@@ -208,6 +209,14 @@ BEGIN
   rc := COALESCE(cur->'revealedCards', '{}'::jsonb);
   rc := jsonb_set(rc, ARRAY[player_id], COALESCE(value::jsonb, 'null'::jsonb));
   cur := jsonb_set(cur, '{revealedCards}', rc);
+  IF (cur->>'phase') = 'voting' THEN
+    SELECT p->>'name' INTO revealer_name
+    FROM jsonb_array_elements(cur->'players') p
+    WHERE p->>'id' = player_id
+    LIMIT 1;
+    cur := jsonb_set(cur, '{revealedBy}',
+      jsonb_build_object('id', player_id, 'name', COALESCE(revealer_name, player_id)));
+  END IF;
   cur := jsonb_set(cur, '{phase}', '"revealed"');
   UPDATE rooms SET state = cur WHERE code = room_code;
 END;
@@ -256,6 +265,7 @@ BEGIN
   ), '[]'::jsonb));
   cur := jsonb_set(cur, '{revealedCards}', '{}'::jsonb);
   cur := jsonb_set(cur, '{throws}', '[]'::jsonb);
+  cur := cur - 'revealedBy';
   UPDATE rooms SET state = cur WHERE code = room_code;
 END;
 $$;

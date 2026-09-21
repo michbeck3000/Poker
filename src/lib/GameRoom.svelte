@@ -333,6 +333,9 @@
     {:else}
       <div class="results">
         <p class="average">Durchschnitt: <strong>{average()}</strong></p>
+        {#if game.revealedBy}
+          <p class="revealed-by">Aufgedeckt von {game.revealedBy.id === game.myId ? 'dir' : game.revealedBy.name}</p>
+        {/if}
         <button class="btn btn-primary" onclick={newRound}>
           Neue Runde
         </button>

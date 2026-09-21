@@ -15,6 +15,7 @@ export const game = $state({
   error: '',
   revealedCards: {},
   throws: [],
+  revealedBy: null,
 });
 
 let channel = null;
@@ -55,6 +56,7 @@ function applyState(raw) {
   game.phase = raw.phase || 'voting';
   game.revealedCards = raw.revealedCards || {};
   game.throws = (raw.throws || []).filter(t => Date.now() - t.timestamp < 5000);
+  game.revealedBy = raw.revealedBy || null;
   game.connected = true;
   game.connecting = false;
   game.error = '';
@@ -162,6 +164,7 @@ export async function createRoom(name) {
       phase: 'voting',
       revealedCards: {},
       throws: [],
+      revealedBy: null,
     };
     await supabase.from('rooms').upsert(
       { code, state: initial },
@@ -325,6 +328,7 @@ function cleanup() {
   game.error = '';
   game.revealedCards = {};
   game.throws = [];
+  game.revealedBy = null;
   revealRetries = 0;
   revealInFlight = false;
 }

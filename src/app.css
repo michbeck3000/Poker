@@ -454,6 +454,11 @@ input::placeholder {
   font-size: 1.3rem;
 }
 
+.revealed-by {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
 @keyframes pop {
   0% { transform: scale(0.5); opacity: 0; }
   70% { transform: scale(1.1); }
